@@ -1,0 +1,40 @@
+@media (max-width: 640px) {
+
+  /* --- Mobile Only: Move buttons below comment section --- */
+
+/* Stack the main layout */
+.completed-trail-top {
+  flex-direction: column !important;
+}
+
+/* Make both sections full width */
+.completed-trail-sidebar,
+.review-section {
+  width: 100% !important;
+}
+
+/* Ensure review section comes BEFORE sidebar */
+.review-section {
+  order: 1 !important;
+}
+
+/* Ensure sidebar (Public, Edit, Save, Delete, Copy Link) comes AFTER review */
+.completed-trail-sidebar {
+  order: 2 !important;
+  margin-top: 16px !important;
+}
+
+/* Make sidebar buttons full width for mobile */
+.completed-trail-sidebar button {
+  width: 100% !important;
+  margin-bottom: 10px !important;
+}
+
+/* Keep delete text centered */
+.completed-trail-sidebar button[aria-label="Delete route"] {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+};

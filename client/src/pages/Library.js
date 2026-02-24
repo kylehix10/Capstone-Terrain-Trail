@@ -110,6 +110,9 @@ export default function Library() {
     return [];
   });
 
+  const [loadedReview, setLoadedReview] = useState(null);
+
+
   useEffect(() => {
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedRoutes));
@@ -168,41 +171,54 @@ export default function Library() {
   }
 
   async function loadRoute(route) {
-    if (!isLoaded || !google?.maps) return;
+  if (!isLoaded || !google?.maps) return;
 
-    setLoadingRouteId(route.id);
-    setSelectedRouteId(route.id);
+  setLoadingRouteId(route.id);
+  setSelectedRouteId(route.id);
 
-    try {
-      const service = new google.maps.DirectionsService();
+  // clear any previously loaded UI review while we (re)load this route
+  setLoadedReview(null);
 
-      const result = await service.route({
-        origin: route.origin,
-        destination: route.destination,
-        travelMode: travelModeFromType(route.type),
-        unitSystem: google.maps.UnitSystem.IMPERIAL,
-      });
+  try {
+    const service = new google.maps.DirectionsService();
 
-      setDirectionsResult(result);
+    const result = await service.route({
+      origin: route.origin,
+      destination: route.destination,
+      travelMode: travelModeFromType(route.type),
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    });
 
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || route.distance || "");
-      setDurationText(leg.duration?.text || route.duration || "");
+    setDirectionsResult(result);
 
-      const originLoc = leg.start_location;
-      const lat = originLoc.lat();
-      const lng = originLoc.lng();
-      setOriginPosition({ lat, lng });
-      setMapCenter({ lat, lng });
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance?.text || route.distance || "");
+    setDurationText(leg.duration?.text || route.duration || "");
 
-      map?.fitBounds(result.routes[0].bounds);
-    } catch (err) {
-      console.error("Failed to load route:", err);
-      alert("Could not load route.");
-    } finally {
-      setLoadingRouteId(null);
-    }
+    const originLoc = leg.start_location;
+    const lat = originLoc.lat();
+    const lng = originLoc.lng();
+    setOriginPosition({ lat, lng });
+    setMapCenter({ lat, lng });
+
+    // fit map to the route bounds if available
+    map?.fitBounds(result.routes[0].bounds);
+
+    // --- NEW: set the loadedReview from the saved route (if any) ---
+    // route.review is expected to be { stars, terrain, comment, ... } or null/undefined
+    setLoadedReview(route.review || null);
+  } catch (err) {
+    console.error("Failed to load route:", err);
+    alert("Could not load route.");
+    // clear the review on failure so stale UI doesn't persist
+    setLoadedReview(null);
+  } finally {
+    setLoadingRouteId(null);
   }
+}
+
+
+   
 
   function deleteRoute(routeId) {
     const shouldDelete = window.confirm("Delete this saved route?");
@@ -218,6 +234,7 @@ export default function Library() {
       setDurationText("");
       setOriginPosition(null);
       setMapCenter(DEFAULT_CENTER);
+      setLoadedReview(null);
     }
   }
 
@@ -366,6 +383,55 @@ export default function Library() {
             Recenter
           </button>
         </div>
+
+{/* --- Review panel for loaded route (shows after clicking Load) --- */}
+{selectedRouteId && (
+  <div
+    style={{
+      marginTop: 12,
+      border: "1px solid #eee",
+      borderRadius: 8,
+      padding: 12,
+      background: "#fff",
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>Saved Review</h3>
+
+    {loadedReview ? (
+      <div>
+        <div style={{ marginBottom: 8 }}>
+          <strong>Stars:</strong>{" "}
+          <span style={{ color: "gold" }}>
+            {Array.from({ length: loadedReview.stars || 0 }).map((_, i) => (
+              <span key={i}>★</span>
+            ))}
+            {Array.from({ length: 5 - (loadedReview.stars || 0) }).map((_, i) => (
+              <span key={`empty-${i}`} style={{ color: "#ddd" }}>
+                ★
+              </span>
+            ))}
+          </span>{" "}
+          <span style={{ marginLeft: 8 }}>{loadedReview.stars || 0}/5</span>
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <strong>Terrain:</strong> {typeof loadedReview.terrain === "number" ? loadedReview.terrain : "—"} / 10
+        </div>
+
+        <div>
+          <strong>Comment:</strong>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>
+            {loadedReview.comment || <em>No comment</em>}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div style={{ color: "#666" }}>No review saved for this route.</div>
+    )}
+  </div>
+)}
+
+
 
         <aside
           style={{

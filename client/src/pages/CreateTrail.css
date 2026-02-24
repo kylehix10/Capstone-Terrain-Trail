@@ -1,0 +1,120 @@
+/* CreateTrail.css — mobile-only overrides (does NOT change desktop) */
+@media (max-width: 640px) {
+
+  /* outer wrapper padding */
+  .create-trail-container {
+    padding: 12px !important;
+  }
+
+  /* stack the form rows on phones */
+  .create-trail-form-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* inputs full width and bigger tap target */
+  .create-trail-input {
+    width: 100% !important;
+    font-size: 16px !important;
+    padding: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* transport toolbar becomes horizontal scroll */
+  .transport-toolbar {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 6px 2px;
+  }
+  .transport-toolbar > * {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  /* floating controls: bottom-centered, thumb reachable */
+  .floating-controls {
+    position: fixed !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 16px !important;
+    top: auto !important;
+    right: auto !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    border-radius: 999px !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18) !important;
+    z-index: 9999 !important;
+    background: rgba(255,255,255,0.98) !important;
+  }
+
+  /* map height reduction on small screens */
+  .map-container {
+    height: 40vh !important;
+    min-height: 240px !important;
+  }
+}
+
+
+/* Ensure map wrapper is the positioning context */
+.map-container {
+  position: relative; /* must be present */
+}
+
+/* Floating Start/Pause/Stop controls: top-right INSIDE the map */
+.map-container .floating-controls {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding: 8px !important;
+  background: rgba(255,255,255,0.98) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important;
+  z-index: 1000 !important;
+  min-height: 40px;
+}
+
+/* Recenter pinned bottom-left INSIDE the map */
+.map-container .recenter-btn {
+  position: absolute !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 1000 !important;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  background: white !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important;
+  cursor: pointer;
+}
+
+/* On small screens keep the same inside-map positions, but add bottom padding so controls don't cover important map UI */
+@media (max-width: 640px) {
+  .map-container {
+    padding-bottom: 56px; /* gives a little breathing room for bottom-left recenter on small maps */
+    box-sizing: border-box;
+  }
+
+  .map-container .floating-controls {
+    flex-direction: row !important; /* more compact on phones */
+    top: 8px !important;
+    right: 8px !important;
+  }
+
+  .map-container .recenter-btn {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+}

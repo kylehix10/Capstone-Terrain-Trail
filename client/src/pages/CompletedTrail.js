@@ -1,6 +1,8 @@
 // src/pages/CompletedTrail.js
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import "./CompletedTrail.css";
+
 
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
@@ -149,10 +151,17 @@ function saveChanges() {
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 980, margin: "0 auto" }}>
+    <div
+  className="completed-trail-container"
+  style={{ padding: 20, maxWidth: 980, margin: "0 auto" }}>
+
       <h1>Completed Trail</h1>
 
-      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+      <div
+  className="completed-trail-top"
+  style={{ display: "flex", gap: 20, marginBottom: 20 }}
+>
+
         <div style={{ flex: 1 }}>
           <h2 style={{ marginTop: 0 }}>
             {route.title || `${route.origin} → ${route.destination}`}
@@ -171,7 +180,11 @@ function saveChanges() {
           </p>
         </div>
 
-        <div style={{ width: 260 }}>
+        <div
+  className="completed-trail-sidebar"
+  style={{ width: 260 }}
+>
+
           <div style={{ marginBottom: 12 }}>
             <button
               onClick={() => setEditing(true)}
@@ -236,6 +249,7 @@ function saveChanges() {
             {[1, 2, 3, 4, 5].map((s) => (
               <button
                 key={s}
+                className="star-button"
                 onClick={() => setStars(s)}
                 style={{
                   fontSize: 22,
@@ -256,7 +270,7 @@ function saveChanges() {
 
         <div style={{ marginBottom: 12 }}>
           <label style={{ display: "block", marginBottom: 6 }}>
-            Terrain (0–10): {terrain}
+            Terrain Level (0–10): {terrain}
           </label>
           <input
             type="range"
