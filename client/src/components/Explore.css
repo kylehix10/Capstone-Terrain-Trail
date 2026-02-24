@@ -1,0 +1,66 @@
+/* Mobile Screen layout for screens smaller than 768px */
+@media (max-width: 768px) {
+  
+  /* Reset Container Padding */
+  div[style*="max-width: 1200"] {
+    padding: 12px !important;
+    max-width: 100% !important;
+  }
+
+  /* Stack Search and Filter Toolbar */
+  div[style*="display: flex"] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  /* Make Transport Toolbar Scrollable Horizontally */
+  div[style*="flex-wrap: wrap"] {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+    flex-direction: row !important; /* Keep icons in a row */
+  }
+
+  /* Style the scrollbar for the icons */
+  div[style*="flex-wrap: wrap"]::-webkit-scrollbar {
+    height: 4px;
+  }
+  div[style*="flex-wrap: wrap"]::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+  }
+
+  /* Adjust the Map height for mobile */
+  div[style*="height: 450px"] {
+    height: 300px !important;
+  }
+
+  /* Trail Cards Layout */
+  div[style*="border: 1px solid #eee"] > div[style*="display: flex"] {
+    flex-direction: column !important; /* Stack text above buttons */
+    gap: 15px !important;
+  }
+
+  /* Make buttons full width on mobile for easier tapping */
+  div[style*="display: flex"][style*="align-items: flex-start"] {
+    flex-direction: row !important; /* Keep View/Copy side by side */
+    width: 100%;
+  }
+
+  div[style*="display: flex"][style*="align-items: flex-start"] button {
+    flex: 1;
+    padding: 10px !important;
+    font-size: 14px;
+  }
+
+  /* Font */
+  h1 {
+    font-size: 22px;
+  }
+
+  strong[style*="font-size: 16"] {
+    font-size: 15px !important;
+    word-break: break-word; /* Prevent long addresses from breaking layout */
+  }
+}
