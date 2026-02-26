@@ -1,40 +1,118 @@
-@media (max-width: 640px) {
+/* src/pages/CompletedTrail.css */
 
-  /* --- Mobile Only: Move buttons below comment section --- */
+/* page */
+.completed-trail-container {
+  padding: 20px;
+  max-width: 980px;
+  margin: 0 auto;
+}
 
-/* Stack the main layout */
 .completed-trail-top {
-  flex-direction: column !important;
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
-/* Make both sections full width */
-.completed-trail-sidebar,
-.review-section {
-  width: 100% !important;
-}
-
-/* Ensure review section comes BEFORE sidebar */
-.review-section {
-  order: 1 !important;
-}
-
-/* Ensure sidebar (Public, Edit, Save, Delete, Copy Link) comes AFTER review */
+/* sidebar + cards */
 .completed-trail-sidebar {
-  order: 2 !important;
-  margin-top: 16px !important;
+  width: 260px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px;
 }
 
-/* Make sidebar buttons full width for mobile */
-.completed-trail-sidebar button {
-  width: 100% !important;
-  margin-bottom: 10px !important;
+.completed-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px;
 }
 
-/* Keep delete text centered */
-.completed-trail-sidebar button[aria-label="Delete route"] {
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
+/* inputs */
+.completed-trail-container input,
+.completed-trail-container select,
+.completed-trail-container textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
 }
 
-};
+.completed-trail-container label {
+  color: var(--text);
+}
+
+.completed-trail-container p,
+.completed-trail-container h1,
+.completed-trail-container h2,
+.completed-trail-container h3 {
+  color: var(--text);
+}
+
+/* buttons */
+.completed-trail-container button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.completed-trail-container button:hover {
+  background: var(--surface-2);
+}
+
+/* delete button */
+.delete-btn {
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.25);
+}
+
+/* stars */
+.star-button {
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer;
+}
+
+/* small helper text */
+.muted {
+  color: var(--muted);
+}
+
+/* --- Mobile Only: Move buttons below comment section --- */
+@media (max-width: 640px) {
+  .completed-trail-top {
+    flex-direction: column !important;
+  }
+
+  .completed-trail-sidebar,
+  .review-section {
+    width: 100% !important;
+  }
+
+  .review-section {
+    order: 1 !important;
+  }
+
+  .completed-trail-sidebar {
+    order: 2 !important;
+    margin-top: 16px !important;
+  }
+
+  .completed-trail-sidebar button {
+    width: 100% !important;
+    margin-bottom: 10px !important;
+  }
+
+  .completed-trail-sidebar button[aria-label="Delete route"] {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+}

@@ -122,14 +122,14 @@ function saveChanges() {
         <input
           value={route.title || ""}
           onChange={(e) => setRoute({ ...route, title: e.target.value })}
-          style={{ width: "100%", padding: 8, marginBottom: 12 }}
+          style={{ marginBottom: 12 }}
         />
 
         <label style={{ display: "block", marginBottom: 6 }}>Type</label>
         <select
           value={route.type || "👣"}
           onChange={(e) => setRoute({ ...route, type: e.target.value })}
-          style={{ width: "100%", padding: 8, marginBottom: 12 }}
+          style={{ marginBottom: 12 }}
         >
           <option>👣</option>
           <option>🚲</option>
@@ -151,18 +151,12 @@ function saveChanges() {
   }
 
   return (
-    <div
-  className="completed-trail-container"
-  style={{ padding: 20, maxWidth: 980, margin: "0 auto" }}>
-
+    <div className="completed-trail-container">
       <h1>Completed Trail</h1>
 
-      <div
-  className="completed-trail-top"
-  style={{ display: "flex", gap: 20, marginBottom: 20 }}
->
-
-        <div style={{ flex: 1 }}>
+      <div className="completed-trail-top">
+        {/* left/main content */}
+        <div className="completed-card" style={{ flex: 1 }}>
           <h2 style={{ marginTop: 0 }}>
             {route.title || `${route.origin} → ${route.destination}`}
           </h2>
@@ -180,37 +174,19 @@ function saveChanges() {
           </p>
         </div>
 
-        <div
-  className="completed-trail-sidebar"
-  style={{ width: 260 }}
->
+        {/* sidebar */}
+        <div className="completed-trail-sidebar">
 
-          <div style={{ marginBottom: 12 }}>
-            <button
-              onClick={() => setEditing(true)}
-              style={{ marginRight: 8 }}
-              aria-label="Edit route"
-            >
+          <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <button onClick={() => setEditing(true)} aria-label="Edit route">
               Edit
             </button>
 
-            <button
-              onClick={saveChanges}
-              style={{ marginRight: 8 }}
-              aria-label="Save route"
-            >
+            <button onClick={saveChanges} aria-label="Save route">
               Save
             </button>
 
-            <button
-              onClick={deleteRoute}
-              style={{
-                background: "#ffdddd",
-                border: "1px solid #ffbbbb",
-                padding: "6px 10px",
-              }}
-              aria-label="Delete route"
-            >
+            <button onClick={deleteRoute} className="delete-btn" aria-label="Delete route">
               Delete
             </button>
           </div>
@@ -239,8 +215,9 @@ function saveChanges() {
           </div>
         </div>
       </div>
-
-      <section style={{ marginBottom: 20 }}>
+      
+      {/* review */}
+      <section className="review-section" style={{ marginBottom: 20 }}>
         <h3>Review this trail</h3>
 
         <div style={{ marginBottom: 12 }}>
@@ -253,10 +230,7 @@ function saveChanges() {
                 onClick={() => setStars(s)}
                 style={{
                   fontSize: 22,
-                  color: s <= stars ? "gold" : "#bbb",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
+                  color: s <= stars ? "gold" : "var(--muted)",
                 }}
                 aria-pressed={s <= stars}
                 title={`${s} star${s > 1 ? "s" : ""}`}
@@ -264,7 +238,9 @@ function saveChanges() {
                 ★
               </button>
             ))}
-            <span style={{ marginLeft: 8 }}>{stars}/5</span>
+            <span style={{ marginLeft: 8 }} className="muted">
+              {stars}/5
+            </span>
           </div>
         </div>
 
@@ -288,25 +264,17 @@ function saveChanges() {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={5}
-            style={{ width: "100%", padding: 8 }}
             placeholder="Write details about the trail (surface, hazards, highlights...)"
           />
         </div>
 
-        <div>
-          <button onClick={saveChanges} style={{ marginRight: 8 }}>
-            Save review
-          </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={saveChanges}>Save review</button>
           <button
             onClick={() => {
-              // quick public toggle + save
-              setIsPublic((prev) => {
-                const next = !prev;
-                // optimistic update then save
-                setIsPublic(next);
-                return next;
-              });
-              // Small delay to allow state to update then save
+              const next = !isPublic;
+              setIsPublic(next);
+              // let state update then save
               setTimeout(saveChanges, 0);
             }}
           >

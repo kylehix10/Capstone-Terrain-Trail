@@ -103,31 +103,24 @@ export default function Explore() {
   });
 
   return (
-    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
+    <div className="explore-page">
       <h1 style={{ marginTop: 0 }}>Explore — Public Trails</h1>
 
       {/* SEARCH BAR SECTION */}
-      <div style={{ marginBottom: 20 }}>
+      <div className="explore-search">
         <input
           type="text"
           placeholder="Search by title, origin, or destination..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px 15px",
-            fontSize: "16px",
-            borderRadius: "8px",
-            border: "1px solid #ddd",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-            outline: "none"
-          }}
         />
       </div>
 
       {/* TRANSPORT ICONS TOOLBAR */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <span style={{ fontWeight: "bold", marginRight: 8 }}>Filter by Mode:</span>
+      <div className="explore-toolbar">
+        <span className="label">Filter by Mode:</span>
+
+        <div className="buttons">
         {[
           { key: "All", label: "Show All" },
           { key: "👣", label: "Walking" },
@@ -144,27 +137,17 @@ export default function Explore() {
               key={opt.key}
               title={opt.label}
               onClick={() => setActiveFilter(opt.key)}
-              style={{
-                fontSize: 18,
-                padding: "6px 12px",
-                borderRadius: 20,
-                border: selected ? "2px solid #0b63d6" : "1px solid #ddd",
-                background: selected ? "#e8f0ff" : "white",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                display: "flex",
-                alignItems: "center",
-                gap: 5
-              }}
+              className={`filter-btn ${selected ? "selected" : ""}`}
             >
               {opt.key}
             </button>
           );
         })}
+        </div>
       </div>
 
       <section style={{ marginBottom: 18 }}>
-        <div style={{ border: "1px solid #e6e6e6", borderRadius: 8, overflow: "hidden" }}>
+        <div className="map-card">
           {isLoaded ? (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
@@ -173,12 +156,12 @@ export default function Explore() {
               onLoad={onMapLoad}
             />
           ) : (
-            <div style={{ width: "100%", height: 450, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: "100%", height: 450, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
               Loading map…
             </div>
           )}
         </div>
-        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+        <div className="map-actions">
           <button onClick={() => {
             if (mapRefInternal.current) {
               mapRefInternal.current.panTo(DEFAULT_CENTER);
@@ -195,17 +178,17 @@ export default function Explore() {
           {searchQuery && ` matching "${searchQuery}"`}
         </h2>
 
-        {loadingPublic ? (
-          <div>Loading public trails…</div>
-        ) : filteredRoutes.length === 0 ? (
-          <div style={{ padding: 20, background: "#f9f9f9", borderRadius: 8, textAlign: "center" }}>
-            No public trails found matching your search or category.
-          </div>
+      {loadingPublic ? (
+        <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
+      ) : filteredRoutes.length === 0 ? (
+        <div className="empty-box">
+          No public trails found matching your search or category.
+        </div>
         ) : (
-          <div style={{ display: "grid", gap: 12 }}>
+          <div className="routes-grid">
             {filteredRoutes.map((r) => (
-              <div key={r.id} style={{ border: "1px solid #eee", padding: 12, borderRadius: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <div key={r.id} className="route-card">
+                <div classname="route-row">
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 20 }}>{r.type || "👣"}</span>
@@ -213,23 +196,23 @@ export default function Explore() {
                         {r.title || `${r.origin} → ${r.destination}`}
                       </strong>
                     </div>
-                    <div style={{ fontSize: 13, color: "#555", marginTop: 6 }}>
+                    <div className="route-meta">
                       {r.origin} → {r.destination}
                       <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
                       <span style={{ marginLeft: 8 }}>• ETA: {r.duration || "—"}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <div className="route-actions">
                     <button onClick={() => openCompleted(r.id)}>View</button>
                     <button onClick={() => copyCompletedLink(r.id)}>Copy link</button>
                   </div>
                 </div>
 
                 {r.review && (
-                  <div style={{ marginTop: 10, fontSize: 14, borderTop: "1px solid #fafafa", paddingTop: 8 }}>
+                  <div className="route-review">
                     <div><strong>Rating:</strong> {r.review.stars}/5</div>
-                    {r.review.comment && <div style={{ marginTop: 4, fontStyle: "italic" }}>"{r.review.comment}"</div>}
+                    {r.review.comment && <div style={{ marginTop: 4, fontStyle: "italic", color: "var(--muted)" }}>"{r.review.comment}"</div>}
                   </div>
                 )}
               </div>

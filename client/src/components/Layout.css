@@ -1,23 +1,18 @@
 
 /* src/components/Layout.css */
 
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f9fafc;
-  color: #222;
-}
-
 /* Overall layout: sidebar + main area */
 .app-root {
   display: flex;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
 }
 
 /* LEFT SIDEBAR */
 .sidebar {
   width: 70px;
-  background: #73000a;
+  background: var(--brand);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -31,7 +26,7 @@ body {
   width: 48px;
   height: 48px;
   border-radius: 4px;
-  background: #73000a;
+  background: var(--brand);
   border: 1px solid #ffffff55;
   display: flex;
   align-items: center;
@@ -46,18 +41,18 @@ body {
 }
 
 .side-link:hover {
-  background: #8b0010;
+  background:  var(--brand-hover);
 }
 
 .side-link.active {
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .side-link.active .icon {
-  color: #73000a;
+  color: var(--brand);
 }
 
-/* For screen readers (keeps text accessible but visually hidden) */
+/* Screen-reader only (visually hidden) */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -75,11 +70,12 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
 }
 
 /* Top header bar */
 .app-header {
-  background-color: #73000a;
+  background-color: var(--brand);
   color: white;
   text-align: center;
   padding: 1rem 0;
@@ -103,6 +99,5 @@ body {
   flex: 1;
   padding: .5rem 3rem;
   overflow-y: auto;
-  background: #f9fafc;
+  background: var(--bg);
 }
-

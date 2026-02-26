@@ -1,23 +1,42 @@
-import React, { useEffect } from "react";
+import React from "react";
 import "./SettingsView.css";
 
-function Modal({ title, children, onCancel, onSave, saving, disableSave }) {
+function Modal({
+  title,
+  children,
+  onCancel,
+  onSave,
+  saving,
+  disableSave,
+  saveLabel = "Save",
+}) {
   return (
-    <div className="modalOverlay" onMouseDown={onCancel}>
+    <div
+      className="modalOverlay"
+      onMouseDown={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <div className="modalCard" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modalHeader">{title}</div>
         <div className="modalBody">{children}</div>
         <div className="modalActions">
-          <button type="button" className="btn btn-neutral" onClick={onCancel} disabled={saving}>
+          <button
+            type="button"
+            className="btn btn-neutral"
+            onClick={onCancel}
+            disabled={saving}
+          >
             Cancel
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className={`btn ${saveLabel === "Delete" ? "btn-danger" : "btn-primary"}`}
             onClick={onSave}
             disabled={saving || disableSave}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : saveLabel}
           </button>
         </div>
       </div>
@@ -34,7 +53,6 @@ export default function SettingsView({
   tab,
   setTab,
 
-  // Modal state
   modal,
   modalForm,
   onModalChange,
@@ -42,19 +60,11 @@ export default function SettingsView({
   closeModal,
   saveModal,
 
-  // actions
   onLogout,
-  onDeleteAccount,
 
-  // appearance
   darkMode,
   toggleDarkMode,
 }) {
-  // keep body class in sync (works even if you later move this logic)
-  useEffect(() => {
-    document.body.classList.toggle("dark", !!darkMode);
-  }, [darkMode]);
-
   return (
     <div className="settings-page">
       <div className="settings-wrap">
@@ -103,7 +113,12 @@ export default function SettingsView({
                     <div className="rowTitle">Full Name</div>
                     <div className="rowValue">{original?.name || "—"}</div>
                   </div>
-                  <button type="button" className="btn btn-primary" onClick={() => openModal("name")}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => openModal("name")}
+                    disabled={saving}
+                  >
                     Change
                   </button>
                 </div>
@@ -113,7 +128,12 @@ export default function SettingsView({
                     <div className="rowTitle">Username</div>
                     <div className="rowValue">{original?.username || "—"}</div>
                   </div>
-                  <button type="button" className="btn btn-primary" onClick={() => openModal("username")}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => openModal("username")}
+                    disabled={saving}
+                  >
                     Change
                   </button>
                 </div>
@@ -123,7 +143,12 @@ export default function SettingsView({
                     <div className="rowTitle">Email</div>
                     <div className="rowValue">{original?.email || "—"}</div>
                   </div>
-                  <button type="button" className="btn btn-primary" onClick={() => openModal("email")}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => openModal("email")}
+                    disabled={saving}
+                  >
                     Change
                   </button>
                 </div>
@@ -133,7 +158,12 @@ export default function SettingsView({
                     <div className="rowTitle">Password</div>
                     <div className="rowValue">••••••••</div>
                   </div>
-                  <button type="button" className="btn btn-primary" onClick={() => openModal("password")}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => openModal("password")}
+                    disabled={saving}
+                  >
                     Change
                   </button>
                 </div>
@@ -148,14 +178,19 @@ export default function SettingsView({
                 </div>
 
                 <div className="actions">
-                  <button type="button" className="btn btn-dangerOutline" onClick={onLogout} disabled={saving}>
+                  <button
+                    type="button"
+                    className="btn btn-dangerOutline"
+                    onClick={onLogout}
+                    disabled={saving}
+                  >
                     Log Out
                   </button>
 
                   <button
                     type="button"
                     className="btn btn-dangerOutline"
-                    onClick={onDeleteAccount}
+                    onClick={() => openModal("delete")}
                     disabled={saving}
                   >
                     Delete Account
@@ -176,7 +211,12 @@ export default function SettingsView({
                     <div className="rowTitle">Dark Mode</div>
                     <div className="rowValue">{darkMode ? "On" : "Off"}</div>
                   </div>
-                  <button type="button" className="btn btn-primary" onClick={toggleDarkMode}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={toggleDarkMode}
+                    disabled={saving}
+                  >
                     Toggle
                   </button>
                 </div>
@@ -193,8 +233,11 @@ export default function SettingsView({
             onSave={saveModal}
             saving={saving}
             disableSave={!modalForm.newName?.trim()}
+            saveLabel="Save"
           >
-            <label className="field-label" htmlFor="newName">New Full Name</label>
+            <label className="field-label" htmlFor="newName">
+              New Full Name
+            </label>
             <input
               id="newName"
               name="newName"
@@ -213,8 +256,11 @@ export default function SettingsView({
             onSave={saveModal}
             saving={saving}
             disableSave={!modalForm.newUsername?.trim()}
+            saveLabel="Save"
           >
-            <label className="field-label" htmlFor="newUsername">New Username</label>
+            <label className="field-label" htmlFor="newUsername">
+              New Username
+            </label>
             <input
               id="newUsername"
               name="newUsername"
@@ -236,8 +282,11 @@ export default function SettingsView({
             onSave={saveModal}
             saving={saving}
             disableSave={!modalForm.newEmail?.trim() || !modalForm.currentPassword}
+            saveLabel="Save"
           >
-            <label className="field-label" htmlFor="newEmail">New Email</label>
+            <label className="field-label" htmlFor="newEmail">
+              New Email
+            </label>
             <input
               id="newEmail"
               name="newEmail"
@@ -247,7 +296,9 @@ export default function SettingsView({
               onChange={onModalChange}
               placeholder="Enter a new email"
             />
-            <label className="field-label" htmlFor="currentPassword">Current Password</label>
+            <label className="field-label" htmlFor="currentPassword">
+              Current Password
+            </label>
             <input
               id="currentPassword"
               name="currentPassword"
@@ -266,9 +317,16 @@ export default function SettingsView({
             onCancel={closeModal}
             onSave={saveModal}
             saving={saving}
-            disableSave={!modalForm.currentPassword || !modalForm.newPassword || !modalForm.confirmPassword}
+            disableSave={
+              !modalForm.currentPassword ||
+              !modalForm.newPassword ||
+              !modalForm.confirmPassword
+            }
+            saveLabel="Save"
           >
-            <label className="field-label" htmlFor="currentPassword2">Current Password</label>
+            <label className="field-label" htmlFor="currentPassword2">
+              Current Password
+            </label>
             <input
               id="currentPassword2"
               name="currentPassword"
@@ -278,7 +336,9 @@ export default function SettingsView({
               onChange={onModalChange}
             />
 
-            <label className="field-label" htmlFor="newPassword">New Password</label>
+            <label className="field-label" htmlFor="newPassword">
+              New Password
+            </label>
             <input
               id="newPassword"
               name="newPassword"
@@ -288,7 +348,9 @@ export default function SettingsView({
               onChange={onModalChange}
             />
 
-            <label className="field-label" htmlFor="confirmPassword">Confirm New Password</label>
+            <label className="field-label" htmlFor="confirmPassword">
+              Confirm New Password
+            </label>
             <input
               id="confirmPassword"
               name="confirmPassword"
@@ -300,6 +362,30 @@ export default function SettingsView({
 
             <p className="settings-sectionHint">
               You’ll need your current password to apply a new one.
+            </p>
+          </Modal>
+        )}
+
+        {modal?.type === "delete" && (
+          <Modal
+            title="Delete Account"
+            onCancel={closeModal}
+            onSave={saveModal}
+            saving={saving}
+            disableSave={false}
+            saveLabel="Delete"
+          >
+            <p className="settings-sectionHint" style={{ margin: 0 }}>
+              This will permanently delete your account and remove your data.
+              Your email and username will become available for reuse.
+            </p>
+
+            <div className="status status-error" style={{ marginTop: 10 }}>
+              This action cannot be undone.
+            </div>
+
+            <p className="settings-sectionHint" style={{ margin: 0 }}>
+              Click <b>Delete</b> to confirm deletion, or <b>Cancel</b> to keep your account.
             </p>
           </Modal>
         )}

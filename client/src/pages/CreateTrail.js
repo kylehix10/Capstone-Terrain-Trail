@@ -9,11 +9,13 @@ import {
   Marker,
 } from "@react-google-maps/api";
 import { useNavigate } from "react-router-dom";
+import "../components/CreateTrail.css";
 
 const containerStyle = { width: "100%", height: "600px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
 function travelModeFromType(type) {
+  if (!window.google?.maps) return null;
   if (type === "🚗") return google.maps.TravelMode.DRIVING;
   if (type === "🚲") return google.maps.TravelMode.BICYCLING;
   if (type === "🛴" || type === "🛹") return google.maps.TravelMode.BICYCLING;
@@ -69,13 +71,14 @@ export default function CreateTrail() {
       libraries: ["places", "maps"],
       version: "weekly",
   });
+  
+  const navigate = useNavigate();
 
   const originInputRef = useRef(null);
   const destInputRef = useRef(null);
   const originAutocompleteRef = useRef(null);
   const destAutocompleteRef = useRef(null);
   const watchIdRef = useRef(null);
-  const navigate = useNavigate();
 
   const [map, setMap] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
@@ -103,8 +106,57 @@ export default function CreateTrail() {
 
   const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
+    // Dark-mode map styling (only when :root.dark is active)
+  const isDarkMode = document.documentElement.classList.contains("dark");
+  const darkMapStyles = [
+    { elementType: "geometry", stylers: [{ color: "#1d1d1d" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#1d1d1d" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#e5e5e5" }] },
+    {
+      featureType: "administrative",
+      elementType: "geometry",
+      stylers: [{ color: "#3a3a3a" }],
+    },
+    {
+      featureType: "poi",
+      elementType: "labels.text.fill",
+      stylers: [{ color: "#bdbdbd" }],
+    },
+    {
+      featureType: "poi.park",
+      elementType: "geometry",
+      stylers: [{ color: "#202a20" }],
+    },
+    {
+      featureType: "road",
+      elementType: "geometry",
+      stylers: [{ color: "#2a2a2a" }],
+    },
+    {
+      featureType: "road",
+      elementType: "geometry.stroke",
+      stylers: [{ color: "#3a3a3a" }],
+    },
+    {
+      featureType: "road",
+      elementType: "labels.text.fill",
+      stylers: [{ color: "#dcdcdc" }],
+    },
+    {
+      featureType: "water",
+      elementType: "geometry",
+      stylers: [{ color: "#0f2a3a" }],
+    },
+    {
+      featureType: "water",
+      elementType: "labels.text.fill",
+      stylers: [{ color: "#bdbdbd" }],
+    },
+  ];
+
+  // Keep map type in sync with routeType (darkmode-safe)
   useEffect(() => {
-  if (!map) return;
+  if (!map || !window.google?.maps) return;
   // If routeType is driving (🚗) use roadmap; otherwise use terrain
   try {
     const mapType = routeType === "🚗" ? google.maps.MapTypeId.ROADMAP : google.maps.MapTypeId.TERRAIN;
@@ -141,7 +193,7 @@ useEffect(() => {
   }
 
   async function calculateRoute(typeArg) {
-        if (!isLoaded || !google?.maps) {
+    if (!isLoaded || !window.google?.maps) {
       alert("Map not ready yet — please wait a moment and try again.");
       return;
     }
@@ -151,6 +203,7 @@ useEffect(() => {
 
     const usedType = typeArg || routeType;
     const travelMode = travelModeFromType(usedType);
+    if (!travelMode) return;
 
     try {
       const directionsService = new google.maps.DirectionsService();
@@ -346,7 +399,7 @@ useEffect(() => {
   }
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !window.google?.maps?.places) return;
 
     if (originInputRef.current && !originAutocompleteRef.current) {
       originAutocompleteRef.current = new google.maps.places.Autocomplete(originInputRef.current, {
@@ -429,6 +482,7 @@ useEffect(() => {
     };
 
     try {
+      setSaving(true);
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const routes = raw ? JSON.parse(raw) : [];
       routes.unshift(newRoute);
@@ -437,10 +491,21 @@ useEffect(() => {
     } catch (err) {
       console.error("saveRouteToLibrary error", err);
       window.alert("Failed to save route. See console for details.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  if (!isLoaded) return <div>Loading map...</div>;
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 16 }}>
+        Map failed to load. Check your Google Maps API key and console logs.
+      </div>
+    );
+  }
+
+  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   // compute elapsed display string from elapsedMsDisplay
   const totalElapsedMs = elapsedMsDisplay;
@@ -458,15 +523,15 @@ useEffect(() => {
   const userIcon = getEmojiMarkerIcon(routeType, 48);
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
-      <h2>Create Trail</h2>
+    <div className="create-trail-container" style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <h2  style={{ marginTop: 0 }}>Create Trail</h2>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <input ref={originInputRef} placeholder="Origin" style={{ padding: 8, minWidth: 240 }} />
-        <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
+      <div className="create-trail-form-row" style={{ marginBottom: 12 }}>
+        <input ref={originInputRef} placeholder="Origin" className="create-trail-input" style={{ padding: 8, minWidth: 240 }} />
+        <input ref={destInputRef} placeholder="Destination" className="create-trail-input" style={{ padding: 8, minWidth: 240 }} />
 
         {/* transport icons toolbar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className= "transport-toolbar" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {[
             { key: "👣", label: "Walking" },
             { key: "🚲", label: "Biking" },
@@ -495,8 +560,9 @@ useEffect(() => {
                   fontSize: 18,
                   padding: "6px 10px",
                   borderRadius: 6,
-                  border: selected ? "2px solid #0b63d6" : "1px solid #ddd",
-                  background: selected ? "#e8f0ff" : "white",
+                  border: selected ? "2px solid var(--brand)" : "1px solid var(--border)",
+                  background: selected ? "rgba(115, 0, 10, 0.12)" : "var(--surface)",
+                  color: "var(--text)",
                   cursor: "pointer",
                   lineHeight: 1,
                 }}
@@ -509,7 +575,7 @@ useEffect(() => {
         </div>
 
         {/* Controls row (non-floating) - Save / Title / Clear */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input
             placeholder="Route title (optional)"
             value={routeTitle}
@@ -519,10 +585,8 @@ useEffect(() => {
           <button onClick={saveRouteToLibrary} disabled={saving}>
             {saving ? "Saving..." : "Save to Library"}
           </button>
-
-          <button onClick={clearRoute} style={{ marginLeft: 8 }}>
-            Clear
-          </button>
+          
+          <button onClick={clearRoute}>Clear</button>
         </div>
       </div>
 
@@ -539,12 +603,19 @@ useEffect(() => {
         {trackedDistanceMeters ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi` : "—"}
       </div>
 
-      <div style={{ position: "relative" }}>
+      <div className="map-container">
         <GoogleMap
           mapContainerStyle={containerStyle}
           center={mapCenter}
           zoom={14}
           onLoad={setMap}
+          options={{
+            styles: isDarkMode ? darkMapStyles : undefined,
+            backgroundColor: isDarkMode ? "#111" : undefined,
+            streetViewControl: false,
+            fullscreenControl: true,
+            mapTypeControl: true,
+          }}
         >
           {directionsResult && <DirectionsRenderer directions={directionsResult} />}
           {trackedPath && trackedPath.length > 1 && (
@@ -563,23 +634,7 @@ useEffect(() => {
         </GoogleMap>
 
         {/* Floating Start / Pause / Stop Controls (moved left a bit from right edge so full screen shows) */}
-        <div
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 72,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            background: "white",
-            padding: "8px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
-            zIndex: 10,
-            minWidth: 90,
-            alignItems: "stretch",
-          }}
-        >
+        <div className="floating-controls">
           {!isTracking && (
             <button
               onClick={() => {
@@ -604,16 +659,7 @@ useEffect(() => {
         </div>
 
         {/* Recenter button (bottom left) */}
-        <button
-          onClick={recenterToOrigin}
-          style={{
-            position: "absolute",
-            bottom: 16,
-            left: 16,
-            padding: 8,
-            zIndex: 10,
-          }}
-        >
+        <button className="recenter-btn" onClick={recenterToOrigin}>
           Recenter
         </button>
       </div>

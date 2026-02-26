@@ -1,6 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+import { ThemeProvider } from "./theme/ThemeContext";
+
 import Layout from "./components/Layout";
 import CreateTrail from "./pages/CreateTrail";
 import Explore from "./pages/Explore";
@@ -12,10 +14,12 @@ import CompletedTrail from "./pages/CompletedTrail";
 
 function App() {
   return (
+    <ThemeProvider>
     <Router>
       <Routes>
         {/* Public auth pages */}
         <Route path="/" element={<SignUp />} />
+        <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
 
         {/* Main app shell under /app */}
@@ -35,6 +39,7 @@ function App() {
         <Route path="*" element={<div>Page not found</div>} />
       </Routes>
     </Router>
+    </ThemeProvider>
   );
 }
 
