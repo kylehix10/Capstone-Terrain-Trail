@@ -92,6 +92,15 @@ export default function Library() {
 
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [loadingRouteId, setLoadingRouteId] = useState(null);
+  const [editingRouteId, setEditingRouteId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    origin: "",
+    destination: "",
+    distance: "",
+    duration: "",
+    type: "",
+  });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -210,6 +219,7 @@ export default function Library() {
     if (!shouldDelete) return;
 
     setSavedRoutes((prevRoutes) => prevRoutes.filter((route) => route.id !== routeId));
+    if (editingRouteId === routeId) setEditingRouteId(null);
 
     if (selectedRouteId === routeId) {
       setSelectedRouteId(null);
@@ -219,6 +229,63 @@ export default function Library() {
       setDurationText("");
       setOriginPosition(null);
       setMapCenter(DEFAULT_CENTER);
+    }
+  }
+
+  function startEditingRoute(route) {
+    setEditingRouteId(route.id);
+    setEditForm({
+      title: route.title || "",
+      origin: route.origin || "",
+      destination: route.destination || "",
+      distance: route.distance || "",
+      duration: route.duration || "",
+      type: route.type || "",
+    });
+  }
+
+  function cancelEditingRoute() {
+    setEditingRouteId(null);
+    setEditForm({
+      title: "",
+      origin: "",
+      destination: "",
+      distance: "",
+      duration: "",
+      type: "",
+    });
+  }
+
+  function handleEditFieldChange(field, value) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function saveEditedRoute(routeId) {
+    const origin = editForm.origin.trim();
+    const destination = editForm.destination.trim();
+
+    if (!origin || !destination) {
+      alert("Origin and destination are required.");
+      return;
+    }
+
+    const updatedRoute = {
+      id: routeId,
+      title: editForm.title.trim() || "Untitled Route",
+      origin,
+      destination,
+      distance: editForm.distance.trim(),
+      duration: editForm.duration.trim(),
+      type: editForm.type.trim(),
+    };
+
+    setSavedRoutes((prevRoutes) =>
+      prevRoutes.map((route) => (route.id === routeId ? updatedRoute : route))
+    );
+    cancelEditingRoute();
+
+    if (selectedRouteId === routeId) {
+      await loadRoute(updatedRoute);
     }
   }
 
@@ -397,35 +464,99 @@ export default function Library() {
                 background: route.id === selectedRouteId ? "#f5f7fa" : "#fff",
               }}
             >
-              <div style={{ fontWeight: 700 }}>
-                {route.title} {route.type}
-              </div>
-              <div style={{ fontSize: 13 }}>
-                {route.origin} -> {route.destination}
-              </div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                {route.distance} {route.duration && `| ${route.duration}`}
-              </div>
+              {editingRouteId === route.id ? (
+                <>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => handleEditFieldChange("title", e.target.value)}
+                      placeholder="Route title"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      value={editForm.type}
+                      onChange={(e) => handleEditFieldChange("type", e.target.value)}
+                      placeholder="Route type"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      value={editForm.origin}
+                      onChange={(e) => handleEditFieldChange("origin", e.target.value)}
+                      placeholder="Origin"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      value={editForm.destination}
+                      onChange={(e) =>
+                        handleEditFieldChange("destination", e.target.value)
+                      }
+                      placeholder="Destination"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      value={editForm.distance}
+                      onChange={(e) => handleEditFieldChange("distance", e.target.value)}
+                      placeholder="Distance (e.g. 1.2 mi)"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                    <input
+                      type="text"
+                      value={editForm.duration}
+                      onChange={(e) => handleEditFieldChange("duration", e.target.value)}
+                      placeholder="Duration (e.g. 15 mins)"
+                      style={{ padding: 6, fontSize: 13 }}
+                    />
+                  </div>
 
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <button
-                  onClick={() => loadRoute(route)}
-                  disabled={loadingRouteId === route.id}
-                >
-                  {loadingRouteId === route.id ? "Loading..." : "Load"}
-                </button>
-                <button
-                  onClick={() => deleteRoute(route.id)}
-                  disabled={loadingRouteId === route.id}
-                  style={{
-                    border: "1px solid #c62828",
-                    color: "#c62828",
-                    background: "#fff",
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button onClick={() => saveEditedRoute(route.id)}>Save</button>
+                    <button onClick={cancelEditingRoute}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 700 }}>
+                    {route.title} {route.type}
+                  </div>
+                  <div style={{ fontSize: 13 }}>
+                    {route.origin} {"->"} {route.destination}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                    {route.distance} {route.duration && `| ${route.duration}`}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <button
+                      onClick={() => loadRoute(route)}
+                      disabled={loadingRouteId === route.id}
+                    >
+                      {loadingRouteId === route.id ? "Loading..." : "Load"}
+                    </button>
+                    <button
+                      onClick={() => startEditingRoute(route)}
+                      disabled={loadingRouteId === route.id}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteRoute(route.id)}
+                      disabled={loadingRouteId === route.id}
+                      style={{
+                        border: "1px solid #c62828",
+                        color: "#c62828",
+                        background: "#fff",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </aside>
