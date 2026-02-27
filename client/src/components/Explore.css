@@ -1,0 +1,182 @@
+/* page wrapper */
+.explore-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* search */
+.explore-search {
+  margin-bottom: 20px;
+}
+
+.explore-search input {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+/* toolbar */
+.explore-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.explore-toolbar .label {
+  font-weight: bold;
+  margin-right: 8px;
+  color: var(--text);
+}
+
+.filter-btn {
+  font-size: 18px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-btn:hover {
+  background: var(--surface-2);
+}
+
+.filter-btn.selected {
+  border: 2px solid #0b63d6;
+  background: rgba(11, 99, 214, 0.18);
+}
+
+/* map card */
+.map-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.map-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+/* generic buttons (optional) */
+.explore-page button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.explore-page button:hover {
+  background: var(--surface-2);
+}
+
+/* empty state */
+.empty-box {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* cards */
+.routes-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.route-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.route-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-meta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.route-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.route-review {
+  margin-top: 10px;
+  font-size: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+/* ----- MOBILE ----- */
+@media (max-width: 768px) {
+  .explore-page {
+    padding: 12px;
+    max-width: 100%;
+  }
+
+  /* toolbar stacks but buttons scroll */
+  .explore-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .explore-toolbar .buttons {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+
+  .explore-toolbar .buttons::-webkit-scrollbar {
+    height: 4px;
+  }
+  .explore-toolbar .buttons::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+  }
+
+  .route-row {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .route-actions button {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+}

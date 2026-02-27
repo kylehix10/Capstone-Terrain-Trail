@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import horseshoe from "./horseshoe_now.jpg";
+import "./Auth.css"
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,7 +12,6 @@ export default function Login() {
   const [slow, setSlow] = useState(false);
   const navigate = useNavigate();
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
-  const garnet = "#73000a";
 
   // avoid setState on unmounted component
   const mountedRef = useRef(true);
@@ -21,10 +21,6 @@ export default function Login() {
       mountedRef.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    console.log("API_BASE:", API_BASE);
-  }, [API_BASE]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -53,21 +49,13 @@ export default function Login() {
     }, 1200);
 
     try {
-      const t0 = performance.now();
-
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       });
 
-      const t1 = performance.now();
       const data = await res.json().catch(() => ({}));
-      const t2 = performance.now();
-
-      console.log(
-        `login fetch=${Math.round(t1 - t0)}ms json=${Math.round(t2 - t1)}ms status=${res.status}`
-      );
 
       if (!mountedRef.current) return;
 
@@ -92,178 +80,77 @@ export default function Login() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "#f9fafc",
-      }}
-    >
-      <header
-        style={{
-          background: "#fff",
-          padding: "24px 40px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-start",
-          borderBottom: "1px solid #eee",
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            color: garnet,
-            letterSpacing: "2px",
-            fontSize: 48,
-            fontWeight: 700,
-          }}
-        >
+    <div className="auth-page">
+      <header className="auth-header">
+        <h1 className="auth-header-title">
           LOG IN
         </h1>
       </header>
 
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          gap: 48,
-          alignItems: "flex-start",
-          justifyContent: "center",
-          padding: "40px",
-        }}
-      >
-        <div style={{ maxWidth: 760, width: "60%", marginTop: "10px" }}>
-          <img
-            src={horseshoe}
-            alt="USC Horseshoe"
-            style={{
-              width: "100%",
-              height: "auto",
-              objectFit: "cover",
-              borderRadius: 6,
-            }}
-          />
+      <main className="auth-main">
+        <div className="auth-image-wrap">
+          <img className="auth-image" src={horseshoe} alt="USC Horseshoe" />
         </div>
 
-        <div
-          style={{
-            width: "32%",
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-            padding: 24,
-            marginTop: "30px",
-          }}
-        >
-          <h2
-            style={{
-              marginTop: 0,
-              marginBottom: 16,
-              color: "#111",
-              fontSize: 28,
-              fontWeight: 600,
-            }}
-          >
-            Login
-          </h2>
+        <div className="auth-card">
+          <h2 className="auth-card-title">Login</h2>
 
           {/* noValidate prevents browser “Please enter an email address.” tooltips */}
-          <form
-            onSubmit={handleSubmit}
-            noValidate
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <input
+            className="auth-input"
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                padding: "12px 14px",
-                border: "1px solid #ddd",
-                borderRadius: 4,
-                fontSize: 16,
-                outline: "none",
-              }}
             />
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="auth-row">
               <input
+                className="auth-input auth-grow"
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{
-                  flex: 1,
-                  padding: "12px 14px",
-                  border: "1px solid #ddd",
-                  borderRadius: 4,
-                  fontSize: 16,
-                  outline: "none",
-                }}
               />
               <button
+              className="auth-btn auth-btn--show"
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
-                style={{
-                  padding: "0 12px",
-                  borderRadius: 4,
-                  border: "1px solid #ddd",
-                  background: "#f5f5f5",
-                  fontSize: 12,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
               >
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
 
             <button
+              className="auth-btn auth-btn--primary"
               type="submit"
               disabled={loading}
-              style={{
-                marginTop: 8,
-                padding: "12px 14px",
-                background: loading ? "#999" : garnet,
-                color: "#fff",
-                border: "none",
-                borderRadius: 4,
-                fontSize: 16,
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
             >
               {loading ? "Logging in..." : "Log In"}
             </button>
 
             {slow && !msg && (
-              <div style={{ color: "#444", fontSize: 14 }}>
+              <div className="auth-msg">
                 Waking up server… (Render free tier can take ~10–20s on the first
                 request)
               </div>
             )}
 
-            {msg && <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>}
+            {msg && <div className="auth-error">{msg}</div>}
 
             {/* Back / Sign up row */}
-            <div style={{ marginTop: 8, fontSize: 14, color: "#333" }}>
-              Don't have an account? Sign up here:
+ 
+            {msg && <div className="auth-error">{msg}</div>}
+
+            <div className="auth-msg" style={{ marginTop: 6 }}>
+              Don&apos;t have an account? Sign up here:
               <button
+                className="auth-btn auth-btn--link"
                 type="button"
                 onClick={() => navigate("/")}
-                style={{
-                  marginLeft: 8,
-                  padding: "6px 10px",
-                  borderRadius: 4,
-                  border: `1px solid ${garnet}`,
-                  background: "#fff",
-                  color: garnet,
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
               >
                 Sign Up
               </button>
@@ -272,17 +159,7 @@ export default function Login() {
         </div>
       </main>
 
-      <footer
-        style={{
-          background: garnet,
-          color: "#fff",
-          textAlign: "center",
-          padding: "14px 0",
-          fontWeight: 600,
-        }}
-      >
-        Cola Trails
-      </footer>
+      <footer className="auth-footer">Cola Trails</footer>
     </div>
   );
 }

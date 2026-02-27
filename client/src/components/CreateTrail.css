@@ -1,0 +1,176 @@
+/* base padding for desktop (safe even if you keep inline styles) */
+.create-trail-container {
+  padding: 1.5rem;
+}
+
+/* map wrapper is the positioning context */
+.map-container {
+  position: relative; /* must be present */
+}
+
+/* ===== Mobile-only overrides ===== */
+@media (max-width: 640px) {
+  /* outer wrapper padding */
+  .create-trail-container {
+    padding: 12px !important;
+  }
+
+  /* stack the form rows on phones */
+  .create-trail-form-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* inputs full width and bigger tap target */
+  .create-trail-input {
+    width: 100% !important;
+    font-size: 16px !important;
+    padding: 12px !important;
+    box-sizing: border-box !important;
+
+    /* dark-mode friendly */
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    outline: none !important;
+  }
+
+  /* transport toolbar becomes horizontal scroll */
+  .transport-toolbar {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 6px 2px;
+
+    /* dark-mode friendly */
+    scrollbar-color: var(--border) transparent;
+  }
+  .transport-toolbar > * {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  /* floating controls: bottom-centered, thumb reachable
+     NOTE: This is overridden later by ".map-container .floating-controls"
+     if the controls are inside the map container (which they are in  CreateTrail.js).
+     Keeping it here is fine as a fallback if we ever move them outside the map.
+  */
+  .floating-controls {
+    position: fixed !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 16px !important;
+    top: auto !important;
+    right: auto !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    padding: 8px !important;
+    border-radius: 999px !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18) !important;
+    z-index: 9999 !important;
+
+    /* dark-mode friendly */
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  /* map height reduction on small screens */
+  .map-container {
+    height: 40vh !important;
+    min-height: 240px !important;
+  }
+}
+
+/* ===== In-map controls  ===== */
+
+/* Floating Start/Pause/Stop controls: top-right INSIDE the map */
+.map-container .floating-controls {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+
+  padding: 8px !important;
+  border-radius: 10px !important;
+  z-index: 1000 !important;
+  min-height: 40px;
+
+  /* dark-mode friendly */
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
+  color: var(--text) !important;
+}
+
+/* Buttons inside floating controls */
+.map-container .floating-controls button {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.map-container .floating-controls button:hover {
+  border-color: var(--brand);
+}
+
+/* Recenter pinned bottom-left INSIDE the map */
+.map-container .recenter-btn {
+  position: absolute !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  top: auto !important;
+  right: auto !important;
+
+  z-index: 1000 !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  cursor: pointer;
+
+  /* dark-mode friendly */
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+.map-container .recenter-btn:hover {
+  border-color: var(--brand);
+}
+
+/* On small screens keep the same inside-map positions, but add breathing room */
+@media (max-width: 640px) {
+  .map-container {
+    padding-bottom: 56px; /* breathing room */
+    box-sizing: border-box;
+  }
+
+  .map-container .floating-controls {
+    flex-direction: row !important; /* compact on phones */
+    top: 8px !important;
+    right: 8px !important;
+  }
+
+  .map-container .floating-controls button {
+    width: auto;
+    min-width: 72px;
+  }
+
+  .map-container .recenter-btn {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+}

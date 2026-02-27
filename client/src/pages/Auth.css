@@ -1,0 +1,211 @@
+/* ------------ Page Layout ----------- */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.auth-header {
+  background: var(--surface);
+  padding: 24px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-header-title {
+  margin: 0;
+  color: var(--brand);
+  letter-spacing: 2px;
+  font-size: 48px;
+  font-weight: 700;
+}
+
+.auth-main {
+  flex: 1;
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px;
+}
+
+.auth-image-wrap {
+  max-width: 760px;
+  width: 60%;
+  margin-top: 10px;
+}
+
+.auth-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.auth-card {
+  width: 32%;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 24px;
+  margin-top: 30px;
+}
+
+.auth-card-title {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- Inputs / Buttons ---------- */
+.auth-input {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  outline: none;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.auth-input::placeholder {
+  color: var(--muted);
+}
+
+.auth-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth-grow {
+  flex: 1;
+}
+
+.auth-btn {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.auth-btn--show {
+  padding: 0 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  height: 44px;
+}
+
+.auth-btn--primary {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 16px;
+}
+
+.auth-btn--primary[disabled] {
+  cursor: not-allowed;
+  background: var(--border);
+  color: var(--muted);
+}
+
+.auth-btn--secondary {
+  padding: 12px 14px;
+  background: transparent;
+  color: var(--brand);
+  border: 2px solid var(--brand);
+  font-size: 16px;
+}
+
+.auth-btn--link {
+  margin-left: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--brand);
+  background: transparent;
+  color: var(--brand);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+/* ---------- Focus styles (keyboard-friendly) ---------- */
+.auth-input:focus-visible,
+.auth-btn:focus-visible {
+  outline: 3px solid rgba(115, 0, 10, 0.35); /* garnet glow */
+  outline-offset: 2px;
+}
+
+/* Optional: make hover feel nicer */
+.auth-btn:hover {
+  filter: brightness(0.98);
+}
+
+.auth-btn--primary:hover:not([disabled]) {
+  background: var(--brand-hover);
+}
+
+/* ---------- Messages ---------- */
+.auth-msg {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.auth-error {
+  font-size: 14px;
+  color: #b00020;
+}
+
+/* ---------- Footer ---------- */
+.auth-footer {
+  background: var(--brand);
+  color: #fff;
+  text-align: center;
+  padding: 14px 0;
+  font-weight: 700;
+}
+
+/* ---------- Mobile / Small screens ---------- */
+@media (max-width: 900px) {
+  .auth-header {
+    padding: 18px;
+  }
+
+  .auth-header-title {
+    font-size: 34px;
+  }
+
+  .auth-main {
+    flex-direction: column;
+    padding: 18px;
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  /* Hide image to speed up mobile + keep form above fold */
+  .auth-image-wrap {
+    display: none;
+  }
+
+  .auth-card {
+    width: 100%;
+    margin-top: 0;
+  }
+}

@@ -144,9 +144,10 @@ app.get("/api/account", requireAuth, async (req, res) => {
     if (cached) {
       return res.json({ user: cached, source: "cache"});
     }
-    const user = await User.findById(req.userId).select(
-      "name username email"
-    );
+    const user = await User.findById(req.userId)
+      .select("name username email")
+      .lean();
+
     if (!user) {
       return res.status(404).json({message: "User not found" });
     }
@@ -159,27 +160,41 @@ app.get("/api/account", requireAuth, async (req, res) => {
 });
 /**
  * PUT /api/account
- * Body can cantain: name, email, currentPassword, newPassword
+ * Body can cantain: name, username,  email, currentPassword, newPassword
  */
 app.put("/api/account", requireAuth, async (req, res) => {
   try {
-    const { name, email, currentPassword, newPassword } = req.body || {};
+    const { name, username, email, currentPassword, newPassword } = req.body || {};
 
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : undefined;
-    const isEmailChanging = typeof trimmedEmail === "string" && trimmedEmail !== user.email;
+    const trimmedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : undefined;
+
+    const isEmailChanging =
+      typeof trimmedEmail === "string" && trimmedEmail !== user.email;
+
     const isPasswordChanging = !!newPassword;
 
+    const trimmedUsername =
+      typeof username === "string" ? username.trim() : undefined;
+
+    const isUsernameChanging =
+      typeof trimmedUsername === "string" &&
+      trimmedUsername.length > 0 &&
+      trimmedUsername !== (user.username || "");
+
+    // Require current password for email or password changes
     if ((isEmailChanging || isPasswordChanging) && !currentPassword) {
       return res.status(400).json({
         message: "Current password is required to change email or password",
       });
     }
 
+    // Verify password if needed
     if (isEmailChanging || isPasswordChanging) {
       const ok = await bcrypt.compare(currentPassword || "", user.passwordHash);
       if (!ok) {
@@ -187,14 +202,38 @@ app.put("/api/account", requireAuth, async (req, res) => {
       }
     }
 
+    // Update name
     if (typeof name === "string") {
       user.name = name.trim();
     }
 
+    // Update username (no password required, but unique + validation)
+    if (isUsernameChanging) {
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_]{2,19}$/.test(trimmedUsername)) {
+        return res.status(400).json({
+          message:
+            "Username must be 3–20 characters and contain only letters, numbers, and underscores.",
+        });
+      }
+
+      const existing = await User.findOne({
+        username: trimmedUsername,
+        _id: { $ne: user._id },
+      }).select("_id");
+
+      if (existing) {
+        return res.status(409).json({ message: "Username already in use" });
+      }
+
+      user.username = trimmedUsername;
+    }
+
+    // Update email
     if (isEmailChanging) {
       user.email = trimmedEmail;
     }
 
+    // Update password
     if (newPassword) {
       if (newPassword.length < 6) {
         return res.status(400).json({
@@ -203,6 +242,7 @@ app.put("/api/account", requireAuth, async (req, res) => {
       }
       user.passwordHash = await bcrypt.hash(newPassword, 10);
     }
+
     await user.save();
 
     // clear cached account data for this user
@@ -212,12 +252,32 @@ app.put("/api/account", requireAuth, async (req, res) => {
       message: "Changes saved",
       user: { name: user.name, username: user.username, email: user.email },
     });
-  }
-  catch (err) {
+  } catch (err) {
     if (err?.code === 11000) {
-      return res.status(409).json({ message: "Email already in use" });
+      return res.status(409).json({ message: "Email or username already in use" });
     }
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * DELETE /api/account
+ * Permanently deletes the authenticated user's account.
+ * This frees email/username for reuse because the document is removed.
+ */
+app.delete("/api/account", requireAuth, async(req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("_id");
+    if (!user) return res.status(404).json({ message: "User not found"});
+
+    await User.deleteOne({ _id: req.userId });
+
+    // clear cached account data for this user
+    cache.del(`account:${req.userId}`);
+
+    return res.json({ message: "Account deleted" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

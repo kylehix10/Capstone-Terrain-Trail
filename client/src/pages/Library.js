@@ -10,32 +10,24 @@ const containerStyle = {
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
-const FALLBACK_ROUTES = [
-  {
-    id: "r1",
-    title: "Swearingen to LeConte",
-    origin: "301 Main St, Columbia, SC 29208",
-    destination: "1523 Greene St, Columbia, SC 29225",
-    distance: ".8 mi",
-    duration: "19 mins",
-    type: "ðŸ‘£",
-  },
-  {
-    id: "r2",
-    title: "Swearingen to LeConte",
-    origin: "301 Main St, Columbia, SC 29208",
-    destination: "1523 Greene St, Columbia, SC 29225",
-    distance: ".7 mi",
-    duration: "7 mins",
-    type: "ðŸš²",
-  },
-];
-
 function travelModeFromType(type) {
-  if (type === "ðŸš²") return google.maps.TravelMode.BICYCLING;
-  if (type === "ðŸš—") return google.maps.TravelMode.DRIVING;
+  if (!google || !google.maps) return null;
+
+  if (type === "🚲" || type === "🛴" || type === "🛹") {
+    return google.maps.TravelMode.BICYCLING;
+  }
+
+  if (type === "🚗") {
+    return google.maps.TravelMode.DRIVING;
+  }
+
+  if (type === "♿") {
+    return google.maps.TravelMode.WALKING;
+  }
+
   return google.maps.TravelMode.WALKING;
 }
+
 
 function parseDistanceToMiles(distanceText) {
   if (!distanceText) return null;
@@ -44,6 +36,10 @@ function parseDistanceToMiles(distanceText) {
   const value = parseFloat(normalized);
   if (Number.isNaN(value)) return null;
 
+  if (/\bkm\b/.test(normalized)) return value * 0.621371;
+  if (/\bmi\b/.test(normalized)) return value; // already miles
+  if (/\bft\b/.test(normalized)) return value / 5280;
+  if (/\bm\b/.test(normalized) && !/\bkm\b/.test(normalized)) return value * 0.000621371; // meters -> miles
   if (normalized.includes("km")) return value * 0.621371;
   if (normalized.includes("ft")) return value / 5280;
   if (/\bm\b/.test(normalized)) return value * 0.000621371;
@@ -79,6 +75,7 @@ export default function Library() {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
     libraries: ["places", "maps"],
+    version: "weekly",
   });
 
   const mapRef = useRef(null);
@@ -118,8 +115,12 @@ export default function Library() {
     } catch (e) {
       console.warn("Failed to load saved routes", e);
     }
-    return FALLBACK_ROUTES;
+    // NO FALLBACK ROUTES: return empty array if nothing in localStorage
+    return [];
   });
+
+  const [loadedReview, setLoadedReview] = useState(null);
+
 
   useEffect(() => {
     try {
@@ -179,40 +180,54 @@ export default function Library() {
   }
 
   async function loadRoute(route) {
-    if (!isLoaded || !google?.maps) return;
+  if (!isLoaded || !google?.maps) return;
 
-    setLoadingRouteId(route.id);
-    setSelectedRouteId(route.id);
+  setLoadingRouteId(route.id);
+  setSelectedRouteId(route.id);
 
-    try {
-      const service = new google.maps.DirectionsService();
+  // clear any previously loaded UI review while we (re)load this route
+  setLoadedReview(null);
 
-      const result = await service.route({
-        origin: route.origin,
-        destination: route.destination,
-        travelMode: travelModeFromType(route.type),
-      });
+  try {
+    const service = new google.maps.DirectionsService();
 
-      setDirectionsResult(result);
+    const result = await service.route({
+      origin: route.origin,
+      destination: route.destination,
+      travelMode: travelModeFromType(route.type),
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    });
 
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || route.distance || "");
-      setDurationText(leg.duration?.text || route.duration || "");
+    setDirectionsResult(result);
 
-      const originLoc = leg.start_location;
-      const lat = originLoc.lat();
-      const lng = originLoc.lng();
-      setOriginPosition({ lat, lng });
-      setMapCenter({ lat, lng });
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance?.text || route.distance || "");
+    setDurationText(leg.duration?.text || route.duration || "");
 
-      map?.fitBounds(result.routes[0].bounds);
-    } catch (err) {
-      console.error("Failed to load route:", err);
-      alert("Could not load route.");
-    } finally {
-      setLoadingRouteId(null);
-    }
+    const originLoc = leg.start_location;
+    const lat = originLoc.lat();
+    const lng = originLoc.lng();
+    setOriginPosition({ lat, lng });
+    setMapCenter({ lat, lng });
+
+    // fit map to the route bounds if available
+    map?.fitBounds(result.routes[0].bounds);
+
+    // --- NEW: set the loadedReview from the saved route (if any) ---
+    // route.review is expected to be { stars, terrain, comment, ... } or null/undefined
+    setLoadedReview(route.review || null);
+  } catch (err) {
+    console.error("Failed to load route:", err);
+    alert("Could not load route.");
+    // clear the review on failure so stale UI doesn't persist
+    setLoadedReview(null);
+  } finally {
+    setLoadingRouteId(null);
   }
+}
+
+
+   
 
   function deleteRoute(routeId) {
     const shouldDelete = window.confirm("Delete this saved route?");
@@ -313,13 +328,25 @@ export default function Library() {
           padding: "10px 12px",
           marginBottom: 12,
           borderRadius: 8,
-          border: "1px solid #ccc",
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--text)",
           fontSize: 14,
         }}
       />
 
       <div style={{ marginBottom: 16 }}>
-        <button onClick={() => setShowFilters((current) => !current)}>
+        <button
+          onClick={() => setShowFilters((current) => !current)}
+          style={{
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            padding: "8px 12px",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
           {showFilters ? "Hide Filters" : "Filter"}
           {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </button>
@@ -328,7 +355,8 @@ export default function Library() {
       {showFilters && (
         <div
           style={{
-            border: "1px solid #ddd",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
             borderRadius: 8,
             padding: 12,
             marginBottom: 16,
@@ -341,7 +369,7 @@ export default function Library() {
           <div>
             <label
               htmlFor="route-type-filter"
-              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
             >
               Route Type
             </label>
@@ -349,7 +377,14 @@ export default function Library() {
               id="route-type-filter"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              style={{ width: "100%", padding: 8 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             >
               <option value="all">All types</option>
               {routeTypeOptions.map((typeValue) => (
@@ -363,7 +398,7 @@ export default function Library() {
           <div>
             <label
               htmlFor="max-distance-filter"
-              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
             >
               Max Distance (mi)
             </label>
@@ -375,14 +410,21 @@ export default function Library() {
               value={maxDistanceMiles}
               onChange={(e) => setMaxDistanceMiles(e.target.value)}
               placeholder="e.g. 1.5"
-              style={{ width: "100%", padding: 8 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             />
           </div>
 
           <div>
             <label
               htmlFor="max-duration-filter"
-              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
             >
               Max Time (min)
             </label>
@@ -394,12 +436,32 @@ export default function Library() {
               value={maxDurationMinutes}
               onChange={(e) => setMaxDurationMinutes(e.target.value)}
               placeholder="e.g. 20"
-              style={{ width: "100%", padding: 8 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             />
           </div>
 
           <div>
-            <button onClick={clearFilters}>Clear Filters</button>
+            <button
+              onClick={clearFilters}
+              style={{
+                width: "100%",
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
       )}
@@ -430,15 +492,78 @@ export default function Library() {
             </div>
           )}
 
-          <button onClick={recenterToOrigin} style={{ marginTop: 8 }}>
+          <button
+            onClick={recenterToOrigin}
+            style={{
+              marginTop: 8,
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text)",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
             Recenter
           </button>
         </div>
 
+{/* --- Review panel for loaded route (shows after clicking Load) --- */}
+{selectedRouteId && (
+  <div
+    style={{
+      marginTop: 12,
+      border: "1px solid var(--border)",
+      borderRadius: 8,
+      padding: 12,
+      background: "var(--surface)",
+      color: "var(--text)"
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>Saved Review</h3>
+
+    {loadedReview ? (
+      <div>
+        <div style={{ marginBottom: 8 }}>
+          <strong>Stars:</strong>{" "}
+          <span style={{ color: "gold" }}>
+            {Array.from({ length: loadedReview.stars || 0 }).map((_, i) => (
+              <span key={i}>★</span>
+            ))}
+            {Array.from({ length: 5 - (loadedReview.stars || 0) }).map((_, i) => (
+              <span key={`empty-${i}`} style={{ color: "#ddd" }}>
+                ★
+              </span>
+            ))}
+          </span>{" "}
+          <span style={{ marginLeft: 8 }}>{loadedReview.stars || 0}/5</span>
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <strong>Terrain:</strong> {typeof loadedReview.terrain === "number" ? loadedReview.terrain : "—"} / 10
+        </div>
+
+        <div>
+          <strong>Comment:</strong>
+          <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>
+            {loadedReview.comment || <em>No comment</em>}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div style={{ color: "var(--muted)" }}>No review saved for this route.</div>
+    )}
+  </div>
+)}
+
+
+
         <aside
           style={{
             width: 340,
-            border: "1px solid #ddd",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
             borderRadius: 8,
             padding: 12,
             maxHeight: 600,
@@ -448,7 +573,7 @@ export default function Library() {
           <h3>Saved Routes ({filteredRoutes.length})</h3>
 
           {filteredRoutes.length === 0 && (
-            <div style={{ color: "#666", fontSize: 14 }}>
+            <div style={{ color: "var(--muted)", fontSize: 14 }}>
               No routes match your search and filters.
             </div>
           )}
@@ -459,9 +584,10 @@ export default function Library() {
               style={{
                 padding: 10,
                 marginBottom: 10,
-                border: "1px solid #eee",
+                border: "1px solid var(--border)",
                 borderRadius: 6,
-                background: route.id === selectedRouteId ? "#f5f7fa" : "#fff",
+                background: route.id === selectedRouteId ? "var(--surface-2)" : "var(--surface)",
+                color: "var(--text)",
               }}
             >
               {editingRouteId === route.id ? (
