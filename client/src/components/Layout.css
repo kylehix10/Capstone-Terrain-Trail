@@ -101,3 +101,40 @@
   overflow-y: auto;
   background: var(--bg);
 }
+.app-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-logoLink{
+  text-decoration: none;
+  margin-left: 18px;
+}
+
+.app-logoCircle{
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.app-logoImg{
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}
+
+.app-headerText{
+  flex: 1;
+  text-align: center;
+}
+
+.app-headerSpacer{
+  width: 90px;
+}

@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, Link } from "react-router-dom";
 import "./Layout.css";
 
 const Layout = () => {
@@ -55,8 +55,25 @@ const Layout = () => {
       {/* RIGHT SIDE: header + page content */}
       <div className="app-main">
         <header className="app-header">
-          <h1>Cola Trails</h1>
-          <p>Explore and rate walking, biking, and driving trails across USC</p>
+          {/* LOGO (left side of the red bar) */}
+          <Link to="/explore" className="app-logoLink" aria-label="Cola Trails home">
+            <div className="app-logoCircle">
+              <img
+                src="/img/colaCan.png"
+                alt="Cola Trails logo"
+                className="app-logoImg"
+              />
+            </div>
+          </Link>
+
+          {/* TITLE (centered) */}
+          <div className="app-headerText">
+            <h1>Cola Trails</h1>
+            <p>Explore and rate walking, biking, and driving trails across USC</p>
+          </div>
+
+          {/* spacer keeps title centered */}
+          <div className="app-headerSpacer" />
         </header>
 
         <main className="main-content">
@@ -68,4 +85,3 @@ const Layout = () => {
 };
 
 export default Layout;
-
