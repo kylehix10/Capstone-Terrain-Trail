@@ -345,6 +345,38 @@ useEffect(() => {
     }
   }
 
+  async function setOriginToUserLocation() {
+  if (!navigator.geolocation || !google?.maps) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      const latLng = new google.maps.LatLng(latitude, longitude);
+
+      const geocoder = new google.maps.Geocoder();
+
+      geocoder.geocode({ location: latLng }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const address = results[0].formatted_address;
+
+          if (originInputRef.current) {
+            originInputRef.current.value = address;
+          }
+
+          setOriginPosition({ lat: latitude, lng: longitude });
+          setMapCenter({ lat: latitude, lng: longitude });
+        }
+      });
+    },
+    (err) => {
+      console.warn("Geolocation error:", err);
+    }
+  );
+}
+
+
+
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -462,7 +494,21 @@ useEffect(() => {
       <h2>Create Trail</h2>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <input ref={originInputRef} placeholder="Origin" style={{ padding: 8, minWidth: 240 }} />
+        <div className="origin-input-wrapper">
+          <input
+            ref={originInputRef}
+            placeholder="Origin"
+            style={{ padding: 8, minWidth: 240 }}
+          />
+
+          <button
+            className="use-location-btn"
+            onClick={setOriginToUserLocation}
+          >
+            📍 My location
+          </button>
+        </div>
+
         <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
 
         {/* transport icons toolbar */}
