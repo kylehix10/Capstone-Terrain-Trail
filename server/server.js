@@ -89,22 +89,35 @@ function requireAuth(req, res, next) {
 app.post("/api/signup", async (req, res) => {
   try {
     const { name, username, email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
-    if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
 
-    //Check for unique username and email
-    if (username) {
-      const existingUser = await User.findOne({ username });
-      if (existingUser) return res.status(409).json({message: "Username already in use"});
+    const nameNorm = typeof name === "string" ? name.trim() : "";
+    const usernameNorm = typeof username === "string" ? username.trim() : "";
+    const emailNorm = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const passwordNorm = typeof password === 'string' ? password : "";
+    if (!emailNorm || !passwordNorm) return res.status(400).json({ message: "Email and password required" });
+    if (passwordNorm.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+    if (!usernameNorm) return res.status(400).json({ message: "Username is required"});
+
+    // Check for unique username and email
+    const existingUsername = await User.findOne({ username: usernameNorm }).select("_id");
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username already in use" });
     }
-    const existingEmail = await User.findOne({ email });
+
+    const existingEmail = await User.findOne({ email: emailNorm }).select("_id");
     if (existingEmail) {
       return res.status(409).json({ message: "Email already in use" });
     }
-    const passwordHash = await bcrypt.hash(password, 10);
-    await User.create({ name, username, email, passwordHash });
 
-    res.status(201).json({ message: "User created" });
+    const passwordHash = await bcrypt.hash(passwordNorm, 10);
+
+    await User.create({
+      name: nameNorm,
+      username: usernameNorm,
+      email: emailNorm,
+      passwordHash,
+    });
+    return res.status(201).json({ message: "User created" });
   } catch (err) {
     if (err?.code === 11000) return res.status(409).json({ message: "Duplicate field" });
     res.status(500).json({ message: "Server error" });
@@ -116,10 +129,13 @@ app.post("/api/login", async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: "Email and password required" });
 
-    const user = await User.findOne({ email });
+    const emailNorm = String(email).trim().toLowerCase();
+    const passwordNorm = String(password);
+
+    const user = await User.findOne({ email: emailNorm });
     if (!user) return res.status(401).json({ message: "Invalid email or password" });
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = await bcrypt.compare(passwordNorm, user.passwordHash);
     if (!ok) return res.status(401).json({ message: "Invalid email or password" });
 
     const token = jwt.sign({ sub: user._id, email: user.email }, process.env.JWT_SECRET || "dev", { expiresIn: "7d" });

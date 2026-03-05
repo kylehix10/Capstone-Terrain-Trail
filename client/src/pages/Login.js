@@ -139,8 +139,6 @@ export default function Login() {
               </div>
             )}
 
-            {msg && <div className="auth-error">{msg}</div>}
-
             {/* Back / Sign up row */}
  
             {msg && <div className="auth-error">{msg}</div>}

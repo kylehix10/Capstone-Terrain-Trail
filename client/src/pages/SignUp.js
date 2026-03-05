@@ -12,19 +12,43 @@ export default function SignUp() {
   const [msg, setMsg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
 
   const passwordsMatch = password.length > 0 && password === confirm;
+  const MIN_PASSWORD_LEN = 6;
 
   async function handleSubmit(e) {
   e.preventDefault();
+  if (loading) return;
   setMsg("");
+  setLoading(true);
 
-  if (!passwordsMatch) {
+  // Normlize inputs
+  const cleanName = name.trim()
+  const cleanUsername = username.trim();
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPassword = password;
+  const cleanConfirm = confirm;
+
+  if (!cleanName || !cleanUsername || !cleanEmail || !cleanPassword || !cleanConfirm) {
+    setMsg("All fields are required.");
+    setLoading(false);
+    return;
+  }
+
+  if (cleanPassword !== cleanConfirm) {
+    setMsg(`Password must be at least ${MIN_PASSWORD_LEN} characters long.`);
+    setLoading(false);
+    return;
+  }
+
+  if (cleanPassword !== cleanConfirm) {
     setMsg("Passwords do not match");
+    setLoading(false);
     return;
   }
 
@@ -32,7 +56,7 @@ export default function SignUp() {
     const res = await fetch(`${API_BASE}/api/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, username, email, password }),
+      body: JSON.stringify({ name: cleanName, username: cleanUsername, email: cleanEmail, password: cleanPassword}),
     });
 
     // Safely parse JSON (prevents crashes if server returns empty/non-JSON)
@@ -53,6 +77,8 @@ export default function SignUp() {
   } catch (err) {
     console.error("SIGNUP ERROR:", err);
     setMsg("Could not reach server. Is the backend running?");
+  } finally {
+    setLoading(false);
   }
 }
 
@@ -107,6 +133,7 @@ export default function SignUp() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                aria-invalid={password.length > 0 && password.length < MIN_PASSWORD_LEN}
               />
               <button
                 className="auth-btn auth-btn--show"
@@ -116,6 +143,12 @@ export default function SignUp() {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
+
+            {password.length > 0 && password.length < MIN_PASSWORD_LEN && (
+              <div className="auth-error">
+                Password must be at least {MIN_PASSWORD_LEN} characters.
+              </div>
+            )}
 
             <div className="auth-row">
               <input
@@ -150,15 +183,16 @@ export default function SignUp() {
               <button
                 className="auth-btn auth-btn--primary auth-grow"
                 type="submit"
-                disabled={!passwordsMatch}
+                disabled={!passwordsMatch || password.length < MIN_PASSWORD_LEN || loading}
               >
-                Sign Up
+                {loading ? "Signing up..." : "Sign Up"}
               </button>
 
               <button
                 className="auth-btn auth-btn--secondary auth-grow"
                 type="button"
                 onClick={() => navigate("/login")}
+                disabled={loading}
               >
                 Log In
               </button>
