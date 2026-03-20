@@ -9,23 +9,24 @@ const containerStyle = {
 
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 function travelModeFromType(type) {
-  if (!google || !google.maps) return null;
+  if (!window.google?.maps) return null;
 
   if (type === "🚲" || type === "🛴" || type === "🛹") {
-    return google.maps.TravelMode.BICYCLING;
+    return window.google.maps.TravelMode.BICYCLING;
   }
 
   if (type === "🚗") {
-    return google.maps.TravelMode.DRIVING;
+    return window.google.maps.TravelMode.DRIVING;
   }
 
   if (type === "♿") {
-    return google.maps.TravelMode.WALKING;
+    return window.google.maps.TravelMode.WALKING;
   }
 
-  return google.maps.TravelMode.WALKING;
+  return window.google.maps.TravelMode.WALKING;
 }
 
 
@@ -73,9 +74,9 @@ function parseDurationToMinutes(durationText) {
 
 export default function Library() {
   const { isLoaded, loadError } = useJsApiLoader({
+    id: "google-map-script",
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places", "maps"],
-    version: "weekly",
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const mapRef = useRef(null);
@@ -180,7 +181,7 @@ export default function Library() {
   }
 
   async function loadRoute(route) {
-  if (!isLoaded || !google?.maps) return;
+  if (!isLoaded || !window.google?.maps) return;
 
   setLoadingRouteId(route.id);
   setSelectedRouteId(route.id);
@@ -189,13 +190,13 @@ export default function Library() {
   setLoadedReview(null);
 
   try {
-    const service = new google.maps.DirectionsService();
+    const service = new window.google.maps.DirectionsService();
 
     const result = await service.route({
       origin: route.origin,
       destination: route.destination,
       travelMode: travelModeFromType(route.type),
-      unitSystem: google.maps.UnitSystem.IMPERIAL,
+      unitSystem: window.google.maps.UnitSystem.IMPERIAL,
     });
 
     setDirectionsResult(result);

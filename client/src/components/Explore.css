@@ -175,6 +175,11 @@
     padding: 10px;
     font-size: 14px;
   }
+  .route-card.previewing {
+    border-color: #0b63d6;
+    box-shadow: 0 0 0 2px rgba(11, 99, 214, 0.25);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
 
   h1 {
     font-size: 22px;

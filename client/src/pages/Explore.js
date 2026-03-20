@@ -1,8 +1,10 @@
 /* global google */
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
 import "../components/Explore.css";
+
+const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 // Map container style
 const mapContainerStyle = {
@@ -16,11 +18,11 @@ const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
 //Travel Mode Type 
 function travelModeFromType(type) {
-  if (!window.google) return null;
-  if (type === "🚗") return google.maps.TravelMode.DRIVING;
-  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
-  if (type === "🛴" || type === "🛹") return google.maps.TravelMode.BICYCLING;
-  return google.maps.TravelMode.WALKING;
+  if (!window.google?.maps) return null;
+  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
+  if (type === "🚲") return window.google.maps.TravelMode.BICYCLING;
+  if (type === "🛴" || type === "🛹") return window.google.maps.TravelMode.BICYCLING;
+  return window.google.maps.TravelMode.WALKING;
 }
 
 function readSavedRoutesFromStorage() {
@@ -36,24 +38,27 @@ function readSavedRoutesFromStorage() {
 export default function Explore() {
   const navigate = useNavigate();
 
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places", "maps"],
-    version: "weekly",
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAP_API_KEY,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
-  const [mapRef, setMapRef] = useState(null);
   const mapRefInternal = useRef(null);
+  const hoverTimerRef = useRef(null);
+  const directionsCache = useRef({});
   
   // States
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState(""); // New search state
+  const [previewRoute, setPreviewRoute] = useState(null); // card being hovered
+  const [previewDirections, setPreviewDirections] = useState(null); //DirectionsResult for a card
+  const [previewLoading, setPreviewLoading] = useState(false); // loading indicator on map
 
   const onMapLoad = useCallback((map) => {
     mapRefInternal.current = map;
-    setMapRef(map);
   }, []);
 
   const loadPublicRoutes = useCallback(() => {
@@ -75,6 +80,76 @@ export default function Explore() {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, [loadPublicRoutes]);
+
+  // fetch directions for a route and  pan map
+  const fetchPreviewDirections = useCallback(async (route) => {
+    if (!isLoaded) return;
+    if (!window.google?.maps) return;
+    if (!route?.origin || !route?.destination) return;
+
+    // use cache to avoid redundant API calls
+    const cacheKey = String(route.id ?? `${route.origin}-${route.destination}-${route.type}`);
+    if (directionsCache.current[cacheKey]) {
+      const cached = directionsCache.current[cacheKey];
+      setPreviewDirections(cached);
+
+      if (mapRefInternal.current && cached?.routes?.[0]?.bounds) {
+        mapRefInternal.current.fitBounds(cached.routes[0].bounds, 40);
+      }
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const svc = new window.google.maps.DirectionsService();
+
+      const result = await svc.route({
+        origin: route.origin,
+        destination: route.destination,
+        travelMode: travelModeFromType(route.type) || window.google.maps.TravelMode.WALKING,
+      });
+
+      directionsCache.current[cacheKey] = result;
+      setPreviewDirections(result);
+
+      if (mapRefInternal.current && result?.routes?.[0]?.bounds) {
+        mapRefInternal.current.fitBounds(result.routes[0].bounds, 40);
+      }
+    } catch (err) {
+      console.warn("Preview directions failed:", err);
+      setPreviewDirections(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [isLoaded]);
+
+  // hover handlers with 300ms debounce
+  const handleCardMouseEnter = useCallback((route) => {
+    clearTimeout(hoverTimerRef.current);
+
+    hoverTimerRef.current = setTimeout(() => {
+      setPreviewRoute(route);
+      fetchPreviewDirections(route);
+    }, 300);
+  }, [fetchPreviewDirections]);
+
+
+  const handleCardMouseLeave = useCallback(() => {
+    clearTimeout(hoverTimerRef.current);
+    setPreviewRoute(null);
+    setPreviewDirections(null);
+    setPreviewLoading(false);
+
+    if (mapRefInternal.current) {
+      mapRefInternal.current.panTo(DEFAULT_CENTER);
+      mapRefInternal.current.setZoom(13);
+    }
+  }, []);
+
+  // cleanup debounce timer on unmount 
+  useEffect(() => {
+    return () => clearTimeout(hoverTimerRef.current);
+  }, []);
 
   const openCompleted = (id) => navigate(`/app/completed/${id}`);
 
@@ -102,11 +177,21 @@ export default function Explore() {
     return matchesFilter && matchesSearch;
   });
 
-  return (
+  if (loadError) {
+    return (
+      <div className="explore-page">
+        <h1 style={{ marginTop: 0}}>Explore - Public Trails</h1>
+        <div className="empty-box" style={{ color: "red" }}>
+          Failed to load Google Maps. Check your API key and map loader settings.
+        </div>
+      </div>
+    );
+  }
+
+    return (
     <div className="explore-page">
       <h1 style={{ marginTop: 0 }}>Explore — Public Trails</h1>
 
-      {/* SEARCH BAR SECTION */}
       <div className="explore-search">
         <input
           type="text"
@@ -116,58 +201,128 @@ export default function Explore() {
         />
       </div>
 
-      {/* TRANSPORT ICONS TOOLBAR */}
       <div className="explore-toolbar">
         <span className="label">Filter by Mode:</span>
-
         <div className="buttons">
-        {[
-          { key: "All", label: "Show All" },
-          { key: "👣", label: "Walking" },
-          { key: "🚲", label: "Biking" },
-          { key: "🚗", label: "Driving" },
-          { key: "🛹", label: "Skateboarding" },
-          { key: "🏃", label: "Running" },
-          { key: "🛴", label: "Scootering" },
-          { key: "♿", label: "Wheelchair" },
-        ].map((opt) => {
-          const selected = activeFilter === opt.key;
-          return (
-            <button
-              key={opt.key}
-              title={opt.label}
-              onClick={() => setActiveFilter(opt.key)}
-              className={`filter-btn ${selected ? "selected" : ""}`}
-            >
-              {opt.key}
-            </button>
-          );
-        })}
+          {[
+            { key: "All", label: "Show All" },
+            { key: "👣", label: "Walking" },
+            { key: "🚲", label: "Biking" },
+            { key: "🚗", label: "Driving" },
+            { key: "🛹", label: "Skateboarding" },
+            { key: "🏃", label: "Running" },
+            { key: "🛴", label: "Scootering" },
+            { key: "♿", label: "Wheelchair" },
+          ].map((opt) => {
+            const selected = activeFilter === opt.key;
+
+            return (
+              <button
+                key={opt.key}
+                title={opt.label}
+                onClick={() => setActiveFilter(opt.key)}
+                className={`filter-btn ${selected ? "selected" : ""}`}
+              >
+                {opt.key}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <section style={{ marginBottom: 18 }}>
-        <div className="map-card">
+        <div className="map-card" style={{ position: "relative" }}>
           {isLoaded ? (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={DEFAULT_CENTER}
               zoom={13}
               onLoad={onMapLoad}
-            />
+            >
+              {previewDirections && (
+                <DirectionsRenderer
+                  directions={previewDirections}
+                  options={{
+                    suppressMarkers: false,
+                    polylineOptions: {
+                      strokeColor: "#0b63d6",
+                      strokeWeight: 5,
+                      strokeOpacity: 0.85,
+                    },
+                  }}
+                />
+              )}
+            </GoogleMap>
           ) : (
-            <div style={{ width: "100%", height: 450, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
+            <div
+              style={{
+                width: "100%",
+                height: 450,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--muted)",
+              }}
+            >
               Loading map…
             </div>
           )}
+
+          {previewLoading && (
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(0,0,0,0.65)",
+                color: "#fff",
+                padding: "5px 14px",
+                borderRadius: 20,
+                fontSize: 13,
+                pointerEvents: "none",
+                zIndex: 10,
+              }}
+            >
+              Loading preview…
+            </div>
+          )}
+
+          {previewRoute && !previewLoading && previewDirections && (
+            <div
+              style={{
+                position: "absolute",
+                top: 10,
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(11, 99, 214, 0.88)",
+                color: "#fff",
+                padding: "5px 14px",
+                borderRadius: 20,
+                fontSize: 13,
+                pointerEvents: "none",
+                zIndex: 10,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Previewing:{" "}
+              {previewRoute.title || `${previewRoute.origin} → ${previewRoute.destination}`}
+            </div>
+          )}
         </div>
+
         <div className="map-actions">
-          <button onClick={() => {
-            if (mapRefInternal.current) {
-              mapRefInternal.current.panTo(DEFAULT_CENTER);
-              mapRefInternal.current.setZoom(13);
-            }
-          }}>Recenter</button>
+          <button
+            onClick={() => {
+              if (mapRefInternal.current) {
+                mapRefInternal.current.panTo(DEFAULT_CENTER);
+                mapRefInternal.current.setZoom(13);
+              }
+            }}
+          >
+            Recenter
+          </button>
+
           <button onClick={loadPublicRoutes}>Refresh public list</button>
         </div>
       </section>
@@ -178,17 +333,22 @@ export default function Explore() {
           {searchQuery && ` matching "${searchQuery}"`}
         </h2>
 
-      {loadingPublic ? (
-        <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
-      ) : filteredRoutes.length === 0 ? (
-        <div className="empty-box">
-          No public trails found matching your search or category.
-        </div>
+        {loadingPublic ? (
+          <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
+        ) : filteredRoutes.length === 0 ? (
+          <div className="empty-box">
+            No public trails found matching your search or category.
+          </div>
         ) : (
           <div className="routes-grid">
             {filteredRoutes.map((r) => (
-              <div key={r.id} className="route-card">
-                <div classname="route-row">
+              <div
+                key={r.id}
+                className={`route-card${previewRoute?.id === r.id ? " previewing" : ""}`}
+                onMouseEnter={() => handleCardMouseEnter(r)}
+                onMouseLeave={handleCardMouseLeave}
+              >
+                <div className="route-row">
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 20 }}>{r.type || "👣"}</span>
@@ -196,6 +356,7 @@ export default function Explore() {
                         {r.title || `${r.origin} → ${r.destination}`}
                       </strong>
                     </div>
+
                     <div className="route-meta">
                       {r.origin} → {r.destination}
                       <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
@@ -211,8 +372,20 @@ export default function Explore() {
 
                 {r.review && (
                   <div className="route-review">
-                    <div><strong>Rating:</strong> {r.review.stars}/5</div>
-                    {r.review.comment && <div style={{ marginTop: 4, fontStyle: "italic", color: "var(--muted)" }}>"{r.review.comment}"</div>}
+                    <div>
+                      <strong>Rating:</strong> {r.review.stars}/5
+                    </div>
+                    {r.review.comment && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          fontStyle: "italic",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        "{r.review.comment}"
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -222,4 +395,4 @@ export default function Explore() {
       </section>
     </div>
   );
-};
+}
