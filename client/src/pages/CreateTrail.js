@@ -82,7 +82,7 @@ export default function CreateTrail() {
   const watchIdRef = useRef(null);
 
   const [map, setMap] = useState(null);
-  const [mapCenter] = useState(DEFAULT_CENTER);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
 
   const [directionsResult, setDirectionsResult] = useState(null);
   const [distanceText, setDistanceText] = useState("");
@@ -397,15 +397,15 @@ useEffect(() => {
     }
   }
 
-  async function setOriginToUserLocation() {
-  if (!navigator.geolocation || !google?.maps) return;
+async function setOriginToUserLocation() {
+  if (!navigator.geolocation || !window.google?.maps) return;
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude } = pos.coords;
-      const latLng = new google.maps.LatLng(latitude, longitude);
+      const latLng = new window.google.maps.LatLng(latitude, longitude);
 
-      const geocoder = new google.maps.Geocoder();
+      const geocoder = new window.google.maps.Geocoder();
 
       geocoder.geocode({ location: latLng }, (results, status) => {
         if (status === "OK" && results && results[0]) {
@@ -425,7 +425,6 @@ useEffect(() => {
     }
   );
 }
-
 
 
 
