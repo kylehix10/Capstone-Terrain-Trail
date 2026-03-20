@@ -11,15 +11,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 
-<<<<<<< HEAD
-const containerStyle = {
-  width: "100%",
-  height: "100%", 
-};
-=======
 const GOOGLE_MAPS_LIBRARIES = ["places"];
 const containerStyle = { width: "100%", height: "600px" };
->>>>>>> Meetkumar-p
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
 function travelModeFromType(type) {
