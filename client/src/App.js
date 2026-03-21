@@ -10,11 +10,13 @@ import Library from "./pages/Library";
 import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import CompletedTrail from "./pages/CompletedTrail";
+import { SnackbarProvider } from "./components/Snackbar";
 
 
 function App() {
   return (
     <ThemeProvider>
+      <SnackbarProvider>
       <Router>
         <Routes>
           {/* Public auth pages */}
@@ -41,6 +43,7 @@ function App() {
           <Route path="*" element={<div>Page not found</div>} />
         </Routes>
       </Router>
+      </SnackbarProvider>
     </ThemeProvider>
   );
 }

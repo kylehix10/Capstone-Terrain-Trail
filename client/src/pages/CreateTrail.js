@@ -9,6 +9,7 @@ import {
 } from "@react-google-maps/api";
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
+import { useSnackbar } from "../components/Snackbar.jsx";
 
 
 const containerStyle = { width: "100%", height: "600px" };
@@ -99,6 +100,7 @@ export default function CreateTrail() {
   const elapsedIntervalRef = useRef(null);
 
   const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+  const { showSnackbar } = useSnackbar();
 
     // Dark-mode map styling (only when :root.dark is active)
   const isDarkMode = document.documentElement.classList.contains("dark");
@@ -186,7 +188,7 @@ useEffect(() => {
 
   async function calculateRoute(typeArg) {
     if (!window.google?.maps) {
-      alert("Map not ready yet — please wait a moment and try again.");
+      showSnackbar("Map not ready yet — please wait a moment and try again.", "warning");
       return;
     }
     const originVal = originInputRef.current?.value?.trim();
@@ -223,7 +225,7 @@ useEffect(() => {
       }
     } catch (err) {
       console.error("calculateRoute error:", err);
-      alert("Could not calculate route. See console for details.");
+      showSnackbar("Could not calculate route. See console for details.", "error");
     }
   }
 
@@ -248,7 +250,7 @@ useEffect(() => {
 
   function beginTracking() {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported by this browser.");
+      showSnackbar("Geolocation not supported by this browser.", "error");
       return;
     }
 
@@ -381,10 +383,11 @@ useEffect(() => {
           const routes = raw ? JSON.parse(raw) : [];
           routes.unshift(newRoute);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
+          showSnackbar("Tracked route saved!", "success");
           navigate(`/app/completed/${newRoute.id}`);
         } catch (err) {
           console.error("save tracked route error", err);
-          alert("Failed to save tracked route. See console for details.");
+          showSnackbar("Failed to save tracked route. See console for details.", "error");
         }
       }
     }
@@ -485,12 +488,12 @@ async function setOriginToUserLocation() {
     const destVal = destInputRef.current?.value?.trim();
 
     if (!originVal || !destVal) {
-      window.alert("Please calculate a route before saving.");
+      showSnackbar("Please calculate a route before saving.", "warning");
       return;
     }
 
     if (!directionsResult) {
-      window.alert("Please calculate a route before saving.");
+      showSnackbar("Please calculate a route before saving.", "warning");
       return;
     }
 
@@ -523,10 +526,11 @@ async function setOriginToUserLocation() {
       const routes = raw ? JSON.parse(raw) : [];
       routes.unshift(newRoute);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
+      showSnackbar("Route saved successfully!", "success");
       navigate(`/app/completed/${newRoute.id}`);
     } catch (err) {
       console.error("saveRouteToLibrary error", err);
-      window.alert("Failed to save route. See console for details.");
+      showSnackbar("Failed to save route. See console for details.", "error");
     } finally {
       setSaving(false);
     }
