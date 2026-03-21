@@ -56,7 +56,7 @@ const Layout = () => {
       <div className="app-main">
         <header className="app-header">
           {/* LOGO (left side of the red bar) */}
-          <Link to="/explore" className="app-logoLink" aria-label="Cola Trails home">
+          <Link to="explore" className="app-logoLink" aria-label="Cola Trails home">
             <div className="app-logoCircle">
               <img
                 src="/img/colaCan.png"
