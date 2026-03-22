@@ -197,7 +197,6 @@ useEffect(() => {
 
   async function calculateRoute(typeArg) {
     if (!isLoaded || !window.google?.maps) {
-      alert("Map not ready yet — please wait a moment and try again.");
       return;
     }
     const originVal = originInputRef.current?.value?.trim();
@@ -234,7 +233,6 @@ useEffect(() => {
       }
     } catch (err) {
       console.error("calculateRoute error:", err);
-      alert("Could not calculate route. See console for details.");
     }
   }
 
@@ -259,7 +257,6 @@ useEffect(() => {
 
   function beginTracking() {
     if (!navigator.geolocation) {
-      alert("Geolocation not supported by this browser.");
       return;
     }
 
@@ -366,41 +363,40 @@ useEffect(() => {
     setElapsedMsDisplay(baseElapsedRef.current);
 
     if (offerSave && trackedPath.length > 0) {
-      const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
-      if (window.confirm("Save tracked route to library?")) {
-        const originVal = originInputRef.current?.value?.trim() || "";
-        const destVal = destInputRef.current?.value?.trim() || "";
-        const title =
-          (routeTitle || "").trim() || `${originVal || "Start"} → ${destVal || "End"}`;
+  const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
 
-        const newRoute = {
-          id: `r_${Date.now()}`,
-          title,
-          origin: originVal || "",
-          destination: destVal || "",
-          distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-          duration: `${minutes} min`,
-          type: routeType || "👣",
-          public: false,
-          review: null,
-          createdAt: new Date().toISOString(),
-          path: trackedPath,
-        };
+  const originVal = originInputRef.current?.value?.trim() || "";
+  const destVal = destInputRef.current?.value?.trim() || "";
+  const title =
+    (routeTitle || "").trim() || `${originVal || "Start"} → ${destVal || "End"}`;
 
-        try {
-          const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-          const routes = raw ? JSON.parse(raw) : [];
-          routes.unshift(newRoute);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
-          navigate(`/app/completed/${newRoute.id}`);
-        } catch (err) {
-          console.error("save tracked route error", err);
-          alert("Failed to save tracked route. See console for details.");
-        }
-      }
-    }
+  const newRoute = {
+    id: `r_${Date.now()}`,
+    title,
+    origin: originVal,
+    destination: destVal,
+    distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+    duration: `${minutes} min`,
+    type: routeType || "👣",
+    public: false,
+    review: null,
+    createdAt: new Date().toISOString(),
+    path: trackedPath,
+  };
+
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const routes = raw ? JSON.parse(raw) : [];
+    routes.unshift(newRoute);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
+
+    navigate(`/app/completed/${newRoute.id}`);
+  } catch (err) {
+    console.error("save tracked route error", err);
   }
+}
 
+  }
   async function setOriginToUserLocation() {
   if (!navigator.geolocation || !google?.maps) return;
 
@@ -497,7 +493,6 @@ useEffect(() => {
     const destVal = destInputRef.current?.value?.trim();
 
     if (!originVal || !destVal) {
-      window.alert("Please calculate a route before saving.");
       return;
     }
 
@@ -525,7 +520,6 @@ useEffect(() => {
       navigate(`/app/completed/${newRoute.id}`);
     } catch (err) {
       console.error("saveRouteToLibrary error", err);
-      window.alert("Failed to save route. See console for details.");
     } finally {
       setSaving(false);
     }

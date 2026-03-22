@@ -41,7 +41,6 @@ export default function CompletedTrail() {
     const routes = readSavedRoutes();
     const found = routes.find((r) => r.id === id);
     if (!found) {
-      alert("Route not found");
       // send back to library
       navigate("/app/library", { replace: true });
       return;
@@ -58,21 +57,13 @@ export default function CompletedTrail() {
   if (!route) return null;
 
 function saveChanges() {
-  // read current saved routes
   const routes = readSavedRoutes();
   const idx = routes.findIndex((r) => r.id === id);
-  if (idx === -1) {
-    alert("Could not find saved route to update.");
-    return;
-  }
+  if (idx === -1) return;
 
   const updated = {
     ...route,
-    title: route.title,
-    distance: route.distance,
-    duration: route.duration,
-    type: route.type,
-    public: Boolean(isPublic), // mark public flag on saved route
+    public: Boolean(isPublic),
     review: {
       stars,
       terrain,
@@ -82,29 +73,22 @@ function saveChanges() {
     updatedAt: new Date().toISOString(),
   };
 
-  // always update library entry
   routes[idx] = updated;
   writeSavedRoutes(routes);
   setRoute(updated);
   setEditing(false);
 
-  // if made public, navigate to Explore (where Explore reads savedRoutes and filters public)
-  if (isPublic) {
-    navigate("/app/explore");
-  } else {
-    // otherwise stay on the detail page — show a confirmation
-    window.alert("Saved to library.");
-  }
+  navigate("/app/explore");
 }
 
+function deleteRoute() {
+  if (!window.confirm("Delete this route? This cannot be undone.")) return;
 
+  const routes = readSavedRoutes().filter((r) => r.id !== id);
+  writeSavedRoutes(routes);
 
-  function deleteRoute() {
-    if (!window.confirm("Delete this route? This cannot be undone.")) return;
-    const routes = readSavedRoutes().filter((r) => r.id !== id);
-    writeSavedRoutes(routes);
-    navigate("/app/library");
-  }
+  navigate("/app/explore");
+}
 
   // remove route from localStorage without navigation (utility)
   function removeRouteOnly() {
@@ -201,9 +185,7 @@ function saveChanges() {
               onClick={() => {
                 // quick actions
                 navigator.clipboard
-                  .writeText(window.location.href)
-                  .then(() => alert("Link copied"))
-                  .catch(() => alert("Copy failed"));
+                  .writeText(window.location.href);
               }}
             >
               Copy Link
