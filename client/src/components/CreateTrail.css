@@ -194,3 +194,45 @@
 .map-container .floating-controls {
   right: 56px !important;
 }
+
+
+
+.map-container {
+  position: relative;
+}
+
+.hazard-control {
+  position: absolute;
+  right: 12px;
+  bottom: 135px; /* move it UP */
+  z-index: 20;
+}
+
+.hazard-btn {
+  margin-bottom: 6px;
+}
+
+.hazard-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  min-width: 170px;
+}
+
+.hazard-menu-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.hazard-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}

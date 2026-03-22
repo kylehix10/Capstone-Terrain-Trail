@@ -90,6 +90,7 @@ export default function CreateTrail() {
   const [distanceText, setDistanceText] = useState("");
   const [durationText, setDurationText] = useState("");
   const [originPosition, setOriginPosition] = useState(null);
+  const [locationMessage, setLocationMessage] = useState("");
 
   const [routeTitle, setRouteTitle] = useState("");
   const [routeType, setRouteType] = useState("👣");
@@ -157,6 +158,19 @@ export default function CreateTrail() {
     },
   ];
 
+
+  const HAZARD_OPTIONS = [
+  { key: "pothole", label: "Pothole", emoji: "🕳️" },
+  { key: "construction", label: "Construction", emoji: "🚧" },
+  { key: "car", label: "Car on roadside", emoji: "🚗" },
+  { key: "debris", label: "Road debris", emoji: "🪨" },
+  { key: "accident", label: "Accident", emoji: "⚠️" },
+];
+
+const [hazardMenuOpen, setHazardMenuOpen] = useState(false);
+const [hazards, setHazards] = useState([]); // [{ lat, lng, type }]
+const [selectedHazardType, setSelectedHazardType] = useState(null);
+
   // Keep map type in sync with routeType (darkmode-safe)
   useEffect(() => {
   if (!map || !window.google?.maps) return;
@@ -188,6 +202,57 @@ useEffect(() => {
 
 
 
+function placeHazardNow(type) {
+  const pos = getCurrentHazardPosition();
+  if (!pos || !type) return;
+
+  setHazards((prev) => [
+    ...prev,
+    {
+      lat: pos.lat,
+      lng: pos.lng,
+      type,
+      createdAt: new Date().toISOString(),
+    },
+  ]);
+
+  setSelectedHazardType(null);
+  setHazardMenuOpen(false);
+}
+
+function getEmojiMarkerIcon(emoji, size = 36) {
+  return {
+    url:
+      "data:image/svg+xml;charset=UTF-8," +
+      encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="${size * 0.8}">
+            ${emoji}
+          </text>
+        </svg>
+      `),
+    scaledSize: new window.google.maps.Size(size, size),
+  };
+}
+
+function handleMapClick(e) {
+  if (!selectedHazardType) return;
+  const clicked = e?.latLng?.toJSON?.();
+  if (!clicked) return;
+  getCurrentHazardPosition(clicked, selectedHazardType);
+}
+
+function getCurrentHazardPosition() {
+  if (isTracking && trackedPath.length > 0) {
+    return trackedPath[trackedPath.length - 1];
+  }
+  if (originPosition) {
+    return originPosition;
+  }
+  return null;
+}
+
+
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
     const runningSeconds = walkingSeconds / multiplier;
@@ -196,45 +261,47 @@ useEffect(() => {
   }
 
   async function calculateRoute(typeArg) {
-    if (!isLoaded || !window.google?.maps) {
-      return;
+  if (!isLoaded || !window.google?.maps) return;
+
+  const originVal = originInputRef.current?.value?.trim();
+  const destVal = destInputRef.current?.value?.trim();
+  if (!destVal) return;
+
+  const usedType = typeArg || routeType;
+  const travelMode = travelModeFromType(usedType);
+  if (!travelMode) return;
+
+  try {
+    const directionsService = new google.maps.DirectionsService();
+
+    const request = {
+      origin: originPosition || originVal,   // <- use GPS first
+      destination: destVal,
+      travelMode,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    };
+
+    const result = await directionsService.route(request);
+    setDirectionsResult(result);
+
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance.text);
+
+    if (travelMode === google.maps.TravelMode.DRIVING) {
+      setDurationText(leg.duration.text);
+    } else if (usedType === "🚲" || usedType === "👣") {
+      setDurationText(leg.duration.text);
+    } else if (usedType === "🏃") {
+      setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 2.0));
+    } else if (usedType === "♿") {
+      setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 0.8));
+    } else {
+      setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 1.0));
     }
-    const originVal = originInputRef.current?.value?.trim();
-    const destVal = destInputRef.current?.value?.trim();
-    if (!originVal || !destVal) return;
-
-    const usedType = typeArg || routeType;
-    const travelMode = travelModeFromType(usedType);
-    if (!travelMode) return;
-
-    try {
-      const directionsService = new google.maps.DirectionsService();
-      const request = {
-        origin: originVal,
-        destination: destVal,
-        travelMode,
-        unitSystem: google.maps.UnitSystem.IMPERIAL,
-      };
-      const result = await directionsService.route(request);
-      setDirectionsResult(result);
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance.text);
-
-      if (travelMode === google.maps.TravelMode.DRIVING) {
-        setDurationText(leg.duration.text);
-      } else if (usedType === "🚲" || usedType === "👣") {
-        setDurationText(leg.duration.text);
-      } else if (usedType === "🏃") {
-        setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 2.0));
-      } else if (usedType === "♿") {
-        setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 0.8));
-      } else {
-        setDurationText(calculateCustomDurationFromWalking(leg.duration.value, 1.0));
-      }
-    } catch (err) {
-      console.error("calculateRoute error:", err);
-    }
+  } catch (err) {
+    console.error("calculateRoute error:", err);
   }
+}
 
   // Timer helpers
   function startElapsedTimer() {
@@ -398,7 +465,12 @@ useEffect(() => {
 
   }
   async function setOriginToUserLocation() {
-  if (!navigator.geolocation || !google?.maps) return;
+  if (!navigator.geolocation || !google?.maps) {
+    setLocationMessage("Location permission required.");
+    return;
+  }
+
+  setLocationMessage("");
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -417,11 +489,23 @@ useEffect(() => {
 
           setOriginPosition({ lat: latitude, lng: longitude });
           setMapCenter({ lat: latitude, lng: longitude });
+          setLocationMessage("");
+        } else {
+          setLocationMessage("Could not get your location.");
         }
       });
     },
     (err) => {
-      console.warn("Geolocation error:", err);
+      if (err?.code === 1) {
+        setLocationMessage("Location permission required.");
+      } else {
+        setLocationMessage("Could not get your location.");
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0,
     }
   );
 }
@@ -454,6 +538,7 @@ useEffect(() => {
 
   // clear everything including timer, tracked data, UI fields
   function clearRoute() {
+    setLocationMessage("");
     setDirectionsResult(null);
     setDistanceText("");
     setDurationText("");
@@ -569,6 +654,12 @@ useEffect(() => {
           >
             📍 My location
           </button>
+
+          {locationMessage && (
+            <div style={{ marginTop: 6, fontSize: 14, color: "crimson" }}>
+              {locationMessage}
+            </div>
+          )}
         </div>
 
         <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
@@ -649,25 +740,108 @@ useEffect(() => {
    
 <div className="map-container">
   <GoogleMap
-    mapContainerStyle={containerStyle}
-    center={mapCenter}
-    zoom={14}
-    onLoad={setMap}
-  >
-    {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-    {trackedPath && trackedPath.length > 1 && (
-      <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
-    )}
-    {lastPos && (
-      <Marker
-        position={lastPos}
-        icon={userIcon}
-        optimized={false}
-      />
-    )}
-  </GoogleMap>
+  mapContainerStyle={containerStyle}
+  center={mapCenter}
+  zoom={14}
+  onLoad={setMap}
+  onClick={handleMapClick}
+>
+  {directionsResult && <DirectionsRenderer directions={directionsResult} />}
+  {trackedPath && trackedPath.length > 1 && (
+    <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
+  )}
+
+  {lastPos && (
+    <Marker position={lastPos} icon={userIcon} optimized={false} />
+  )}
+
+{hazards.map((hazard, idx) => {
+  const emojiMap = {
+    pothole: "🕳️",
+    construction: "🚧",
+    car: "🚗",
+    debris: "🪨",
+    accident: "⚠️",
+    flood: "🌊",
+  };
+
+  return (
+    <Marker
+      key={idx}
+      position={{ lat: hazard.lat, lng: hazard.lng }}
+      icon={getEmojiMarkerIcon(emojiMap[hazard.type] || "⚠️")}
+      title={hazard.type}
+      optimized={false}
+    />
+  );
+})}
+
+
+</GoogleMap>
 
   {/* Floating Start / Pause / Stop Controls (INSIDE map via position on .map-container) */}
+  {/* Hazard control pinned above Google camera controls */}
+<div className="hazard-control">
+  <button
+    className="map-btn hazard-btn"
+    onClick={() => setHazardMenuOpen((v) => !v)}
+    aria-expanded={hazardMenuOpen}
+  >
+    ⚠️ Hazard
+  </button>
+
+  {hazardMenuOpen && (
+    <div className="hazard-menu">
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("accident")}
+      >
+        ⚠️ Accident
+      </button>
+  
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("pothole")}
+      >
+        🕳️ Pothole
+      </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("construction")}
+      >
+        🚧 Construction
+      </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("car")}
+      >
+        🚗 Car on roadside
+      </button>
+
+      <button
+      className="hazard-menu-item"
+      onClick={() => placeHazardNow("debris")}
+    >
+      🪨 Road debris
+    </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => {
+          setSelectedHazardType(null);
+          setHazardMenuOpen(false);
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  )}
+</div>
+
+
+
   <div className="floating-controls">
     {!isTracking && (
       <button
