@@ -499,7 +499,7 @@ function getLastTrackedPoint() {
         }
       }
     }
-  }
+  
 
   async function setOriginToUserLocation() {
   if (!navigator.geolocation || !google?.maps) {
@@ -956,3 +956,4 @@ function getLastTrackedPoint() {
 </div>
     </div>
   );
+}
