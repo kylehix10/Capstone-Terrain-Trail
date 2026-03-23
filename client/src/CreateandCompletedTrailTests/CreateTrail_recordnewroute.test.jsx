@@ -1,5 +1,5 @@
 // npm install react-router-dom@6  version needed to run
-// to run:  npm test -- CreateTrail_recordnewroute.test.jsx  
+// to run:  npm test -- CreateTrail_recordnewroute.test.jsx  in client folder
 
 
 import React from "react";
