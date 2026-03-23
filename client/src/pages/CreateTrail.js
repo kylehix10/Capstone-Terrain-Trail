@@ -252,6 +252,11 @@ function getCurrentHazardPosition() {
   return null;
 }
 
+function getLastTrackedPoint() {
+  if (!trackedPath || trackedPath.length === 0) return null;
+  return trackedPath[trackedPath.length - 1];
+}
+
 
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
@@ -412,58 +417,88 @@ function getCurrentHazardPosition() {
     watchIdRef.current = id;
   }
 
-  function stopTracking({ offerSave = true } = {}) {
-    if (!isTracking) return;
-    // finalize elapsed
-    if (startTsRef.current) {
-      baseElapsedRef.current += Date.now() - startTsRef.current;
-      startTsRef.current = null;
+  async function stopTracking({ offerSave = true } = {}) {
+  if (!isTracking) return;
+
+  // finalize elapsed time
+  if (startTsRef.current) {
+    baseElapsedRef.current += Date.now() - startTsRef.current;
+    startTsRef.current = null;
+  }
+
+  setIsTracking(false);
+  setIsPaused(false);
+
+  // stop GPS watcher
+  if (watchIdRef.current != null) {
+    navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+  }
+
+  stopElapsedTimer();
+  setElapsedMsDisplay(baseElapsedRef.current);
+
+  // helper for reverse geocoding
+  async function reverseGeocodePoint(point) {
+    if (!window.google?.maps || !point) return null;
+
+    return new Promise((resolve) => {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: point }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          resolve(results[0].formatted_address);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  if (offerSave && trackedPath.length > 0) {
+    const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
+
+    const originVal = originInputRef.current?.value?.trim() || "";
+    const lastPoint = trackedPath[trackedPath.length - 1];
+
+    // 🔥 get real address instead of lat/lng
+    let destinationValue = "End";
+    if (lastPoint) {
+      const address = await reverseGeocodePoint(lastPoint);
+      destinationValue =
+        address ||
+        `${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
     }
-    setIsTracking(false);
-    setIsPaused(false);
-    // stop geolocation watcher
-    if (watchIdRef.current != null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
+
+    const title =
+      (routeTitle || "").trim() ||
+      `${originVal || "Start"} → ${destinationValue}`;
+
+    const newRoute = {
+      id: `r_${Date.now()}`,
+      title,
+      origin: originVal,
+      destination: destinationValue,
+      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+      duration: `${minutes} min`,
+      type: routeType || "👣",
+      public: false,
+      review: null,
+      createdAt: new Date().toISOString(),
+      path: trackedPath,
+    };
+
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const routes = raw ? JSON.parse(raw) : [];
+      routes.unshift(newRoute);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
+
+      navigate(`/app/completed/${newRoute.id}`);
+    } catch (err) {
+      console.error("save tracked route error", err);
     }
-    stopElapsedTimer();
-    setElapsedMsDisplay(baseElapsedRef.current);
-
-    if (offerSave && trackedPath.length > 0) {
-  const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
-
-  const originVal = originInputRef.current?.value?.trim() || "";
-  const destVal = destInputRef.current?.value?.trim() || "";
-  const title =
-    (routeTitle || "").trim() || `${originVal || "Start"} → ${destVal || "End"}`;
-
-  const newRoute = {
-    id: `r_${Date.now()}`,
-    title,
-    origin: originVal,
-    destination: destVal,
-    distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-    duration: `${minutes} min`,
-    type: routeType || "👣",
-    public: false,
-    review: null,
-    createdAt: new Date().toISOString(),
-    path: trackedPath,
-  };
-
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const routes = raw ? JSON.parse(raw) : [];
-    routes.unshift(newRoute);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
-
-    navigate(`/app/completed/${newRoute.id}`);
-  } catch (err) {
-    console.error("save tracked route error", err);
   }
 }
-
-  }
   async function setOriginToUserLocation() {
   if (!navigator.geolocation || !google?.maps) {
     setLocationMessage("Location permission required.");
@@ -722,6 +757,7 @@ function getCurrentHazardPosition() {
           
           <button onClick={clearRoute}>Clear</button>
         </div>
+        
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -844,20 +880,41 @@ function getCurrentHazardPosition() {
 
   <div className="floating-controls">
     {!isTracking && (
-      <button
+      <>
+        <button
+          className="map-btn"
+          onClick={() => {
+            const originVal = originInputRef.current?.value?.trim();
+            const destVal = destInputRef.current?.value?.trim();
+            if (!directionsResult && originVal && destVal) {
+              calculateRoute().then(beginTracking).catch(beginTracking);
+            } else {
+              beginTracking();
+            }
+          }}
+        >
+          Start
+        </button>
+
+        <button
         className="map-btn"
         onClick={() => {
           const originVal = originInputRef.current?.value?.trim();
-          const destVal = destInputRef.current?.value?.trim();
-          if (!directionsResult && originVal && destVal) {
-            calculateRoute().then(beginTracking).catch(beginTracking);
-          } else {
-            beginTracking();
+          if (!originVal) {
+            setLocationMessage("Please enter a start location before recording.");
+            return;
           }
+
+          setLocationMessage("");
+          setDirectionsResult(null);
+          setDistanceText("");
+          setDurationText("");
+          beginTracking();
         }}
       >
-        Start
+        Record New Route
       </button>
+      </>
     )}
 
     {isTracking && !isPaused && (
