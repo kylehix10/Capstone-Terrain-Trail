@@ -12,25 +12,30 @@ const mapContainerStyle = {
 
 // Default center (Columbia, SC)
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
-const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
 //Travel Mode Type 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
   if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
-  if (type === "🚲") return window.google.maps.TravelMode.BICYCLING;
-  if (type === "🛴" || type === "🛹") return window.google.maps.TravelMode.BICYCLING;
+  if (type === "🚲" || type === "🛴" || type === "🛹")
+    return window.google.maps.TravelMode.BICYCLING;
   return window.google.maps.TravelMode.WALKING;
 }
 
-function readSavedRoutesFromStorage() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("readSavedRoutesFromStorage error", e);
-    return [];
-  }
+async function fetchPublicRoutes() {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/routes/public`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) throw new Error("Not authenticated");
+  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data.routes) ? data.routes : [];
 }
 
 export default function Explore() {
@@ -40,11 +45,16 @@ export default function Explore() {
   const hoverTimerRef = useRef(null);
   const directionsCache = useRef({});
   
-  // States
+  // data / loading
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
+  // filters
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState(""); // New search state
+
+  // map preview
   const [previewRoute, setPreviewRoute] = useState(null); // card being hovered
   const [previewDirections, setPreviewDirections] = useState(null); //DirectionsResult for a card
   const [previewLoading, setPreviewLoading] = useState(false); // loading indicator on map
@@ -53,24 +63,26 @@ export default function Explore() {
     mapRefInternal.current = map;
   }, []);
 
-  const loadPublicRoutes = useCallback(() => {
+  // load public routes from server
+  const loadPublicRoutes = useCallback(async () => {
+    setLoadingPublic(true);
+    setFetchError(null);
     try {
-      const all = readSavedRoutesFromStorage();
-      const pubs = all.filter((r) => Boolean(r.public));
-      setPublicRoutes(pubs);
-    } catch (e) {
+      const routes = await fetchPublicRoutes();
+      setPublicRoutes(routes);
+    }
+    catch (e) {
       console.error("loadPublicRoutes error", e);
+      setFetchError("Could not load public trails. Please try again.");
       setPublicRoutes([]);
-    } finally {
+    }
+    finally {
       setLoadingPublic(false);
     }
   }, []);
 
   useEffect(() => {
     loadPublicRoutes();
-    function onStorage() { loadPublicRoutes(); }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
   }, [loadPublicRoutes]);
 
   // fetch directions for a route and  pan map
@@ -138,9 +150,7 @@ export default function Explore() {
   }, []);
 
   // cleanup debounce timer on unmount 
-  useEffect(() => {
-    return () => clearTimeout(hoverTimerRef.current);
-  }, []);
+  useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
 
   const openCompleted = (id) => navigate(`/app/completed/${id}`);
 
@@ -186,27 +196,23 @@ export default function Explore() {
         <div className="buttons">
           {[
             { key: "All", label: "Show All" },
-            { key: "👣", label: "Walking" },
-            { key: "🚲", label: "Biking" },
-            { key: "🚗", label: "Driving" },
-            { key: "🛹", label: "Skateboarding" },
-            { key: "🏃", label: "Running" },
-            { key: "🛴", label: "Scootering" },
-            { key: "♿", label: "Wheelchair" },
-          ].map((opt) => {
-            const selected = activeFilter === opt.key;
-
-            return (
-              <button
-                key={opt.key}
-                title={opt.label}
-                onClick={() => setActiveFilter(opt.key)}
-                className={`filter-btn ${selected ? "selected" : ""}`}
-              >
-                {opt.key}
-              </button>
-            );
-          })}
+            { key: "👣",  label: "Walking" },
+            { key: "🚲",  label: "Biking" },
+            { key: "🚗",  label: "Driving" },
+            { key: "🛹",  label: "Skateboarding" },
+            { key: "🏃",  label: "Running" },
+            { key: "🛴",  label: "Scootering" },
+            { key: "♿",  label: "Wheelchair" },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              title={opt.label}
+              onClick={() => setActiveFilter(opt.key)}
+              className={`filter-btn ${activeFilter === opt.key ? "selected" : ""}`}
+            >
+              {opt.key}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -287,26 +293,36 @@ export default function Explore() {
             Recenter
           </button>
 
-          <button onClick={loadPublicRoutes}>Refresh public list</button>
+          <button onClick={loadPublicRoutes} disabled={loadingPublic}>
+            {loadingPublic ? "Refreshing…" : "Refresh public list"}
+          </button>
         </div>
       </section>
 
-      <section>
+       <section>
         <h2 style={{ marginBottom: 12 }}>
           {activeFilter === "All" ? "Public Trails" : `${activeFilter} Trails`}
           {searchQuery && ` matching "${searchQuery}"`}
         </h2>
-
+ 
         {loadingPublic ? (
           <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
+        ) : fetchError ? (
+          <div className="empty-box" style={{ color: "crimson" }}>
+            {fetchError}
+          </div>
         ) : filteredRoutes.length === 0 ? (
-          <div className="empty-box">No public trails found matching your search or category.</div>
+          <div className="empty-box">
+            No public trails found matching your search or category.
+          </div>
         ) : (
           <div className="routes-grid">
             {filteredRoutes.map((r) => (
               <div
                 key={r.id}
-                className={`route-card${previewRoute?.id === r.id ? " previewing" : ""}`}
+                className={`route-card${
+                  previewRoute?.id === r.id ? " previewing" : ""
+                }`}
                 onMouseEnter={() => handleCardMouseEnter(r)}
                 onMouseLeave={handleCardMouseLeave}
               >
@@ -318,20 +334,24 @@ export default function Explore() {
                         {r.title || `${r.origin} → ${r.destination}`}
                       </strong>
                     </div>
-
+ 
                     <div className="route-meta">
                       {r.origin} → {r.destination}
                       <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
-                      <span style={{ marginLeft: 8 }}>• ETA: {r.duration || "—"}</span>
+                      <span style={{ marginLeft: 8 }}>
+                        • ETA: {r.duration || "—"}
+                      </span>
                     </div>
                   </div>
-
+ 
                   <div className="route-actions">
                     <button onClick={() => openCompleted(r.id)}>View</button>
-                    <button onClick={() => copyCompletedLink(r.id)}>Copy link</button>
+                    <button onClick={() => copyCompletedLink(r.id)}>
+                      Copy link
+                    </button>
                   </div>
                 </div>
-
+ 
                 {r.review && (
                   <div className="route-review">
                     <div>
@@ -342,7 +362,7 @@ export default function Explore() {
                         style={{
                           marginTop: 4,
                           fontStyle: "italic",
-                          color: "var(--muted)",
+                          color:     "var(--muted)",
                         }}
                       >
                         "{r.review.comment}"
