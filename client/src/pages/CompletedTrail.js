@@ -1,102 +1,220 @@
 // src/pages/CompletedTrail.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  GoogleMap,
+  DirectionsRenderer,
+  Marker,
+  Polyline,
+} from "@react-google-maps/api";
 import "./CompletedTrail.css";
 
+const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
+const MAP_CONTAINER = { width: "100%", height: "420px" };
+const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
-const LOCAL_STORAGE_KEY = "savedRoutes_v1";
-
-function readSavedRoutes() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("readSavedRoutes error", e);
-    return [];
-  }
+function authHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
-function writeSavedRoutes(routes) {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
-  } catch (e) {
-    console.error("writeSavedRoutes error", e);
+function travelModeFromType(type) {
+  if (!window.google?.maps) return null;
+  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
+  if (type === "🚲" || type === "🛴" || type === "🛹") {
+    return window.google.maps.TravelMode.BICYCLING;
   }
+  return window.google.maps.TravelMode.WALKING;
 }
+
+function getEmojiMarkerIcon(emoji = "⚠️", size = 36) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="${size * 0.8}">
+        ${emoji}
+      </text>
+    </svg>
+  `;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: window.google?.maps
+      ? new window.google.maps.Size(size, size)
+      : undefined,
+  };
+}
+
+const HAZARD_EMOJI = {
+  pothole: "🕳️",
+  construction: "🚧",
+  car: "🚗",
+  debris: "🪨",
+  accident: "⚠️",
+  flood: "🌊",
+};
 
 export default function CompletedTrail() {
-  const { id } = useParams(); // expects route like /app/completed/:id
+  const { id } = useParams();
   const navigate = useNavigate();
 
+  const mapRef = useRef(null);
+
   const [route, setRoute] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  // review fields
-  const [stars, setStars] = useState(0); // 0-5
-  const [terrain, setTerrain] = useState(5); // 0-10
+  const [map, setMap] = useState(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [directionsResult, setDirectionsResult] = useState(null);
+
+  const [stars, setStars] = useState(0);
+  const [terrain, setTerrain] = useState(5);
   const [isPublic, setIsPublic] = useState(false);
   const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    const routes = readSavedRoutes();
-    const found = routes.find((r) => r.id === id);
-    if (!found) {
-      // send back to library
-      navigate("/app/library", { replace: true });
-      return;
-    }
-    setRoute(found);
+  const [hazards, setHazards] = useState([]);
 
-    // populate review fields if present
-    setStars(found.review?.stars || 0);
-    setTerrain(found.review?.terrain ?? 5);
-    setIsPublic(Boolean(found.public));
-    setComment(found.review?.comment || "");
+  useEffect(() => {
+    async function fetchRoute() {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+          headers: authHeaders(),
+        });
+
+        if (res.status === 404 || res.status === 403) {
+          navigate("/app/library", { replace: true });
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.status}`);
+        }
+
+        const data = await res.json();
+        const found = data.route;
+
+        setRoute(found);
+        setHazards(Array.isArray(found.hazards) ? found.hazards : []);
+        setStars(found.review?.stars ?? 0);
+        setTerrain(found.review?.terrain ?? 5);
+        setIsPublic(Boolean(found.public));
+        setComment(found.review?.comment || "");
+      } catch (e) {
+        console.error("fetchRoute error", e);
+        navigate("/app/library", { replace: true });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchRoute();
   }, [id, navigate]);
 
-  if (!route) return null;
+  const loadDirections = useCallback(async (r) => {
+    if (!r?.origin || !r?.destination || !window.google?.maps) return;
 
-function saveChanges() {
-  const routes = readSavedRoutes();
-  const idx = routes.findIndex((r) => r.id === id);
-  if (idx === -1) return;
+    setMapLoading(true);
+    try {
+      const result = await new window.google.maps.DirectionsService().route({
+        origin: r.origin,
+        destination: r.destination,
+        travelMode:
+          travelModeFromType(r.type) || window.google.maps.TravelMode.WALKING,
+      });
 
-  const updated = {
-    ...route,
-    public: Boolean(isPublic),
-    review: {
-      stars,
-      terrain,
-      comment,
-      updatedAt: new Date().toISOString(),
-    },
-    updatedAt: new Date().toISOString(),
-  };
+      setDirectionsResult(result);
 
-  routes[idx] = updated;
-  writeSavedRoutes(routes);
-  setRoute(updated);
-  setEditing(false);
+      if (mapRef.current && result?.routes?.[0]?.bounds) {
+        mapRef.current.fitBounds(result.routes[0].bounds, 40);
+      }
+    } catch (err) {
+      console.warn("loadDirections failed", err);
+      setDirectionsResult(null);
+    } finally {
+      setMapLoading(false);
+    }
+  }, []);
 
-  navigate("/app/explore");
-}
+  useEffect(() => {
+    if (route) {
+      loadDirections(route);
+    }
+  }, [route, loadDirections]);
 
-function deleteRoute() {
-  if (!window.confirm("Delete this route? This cannot be undone.")) return;
+  async function saveChanges({ overridePublic } = {}) {
+    if (!route) return;
 
-  const routes = readSavedRoutes().filter((r) => r.id !== id);
-  writeSavedRoutes(routes);
+    setSaving(true);
 
-  navigate("/app/explore");
-}
+    const publicValue =
+      overridePublic !== undefined ? overridePublic : isPublic;
 
-  // remove route from localStorage without navigation (utility)
-  function removeRouteOnly() {
-    const routes = readSavedRoutes().filter((r) => r.id !== id);
-    writeSavedRoutes(routes);
+    const payload = {
+      ...route,
+      public: Boolean(publicValue),
+      hazards,
+      review: {
+        stars,
+        terrain,
+        comment,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      setRoute(data.route);
+      setIsPublic(Boolean(data.route.public));
+      setHazards(Array.isArray(data.route.hazards) ? data.route.hazards : []);
+      setEditing(false);
+      navigate("/app/explore");
+    } catch (e) {
+      console.error("saveChanges error", e);
+      alert("Failed to save changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // lightweight UI for editing basic fields
+  async function deleteRoute() {
+    if (!window.confirm("Delete this route? This cannot be undone.")) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
+      navigate("/app/explore");
+    } catch (e) {
+      console.error("deleteRoute error", e);
+      alert("Failed to delete route. Please try again.");
+    }
+  }
+
+  function removeHazard(idx) {
+    setHazards((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   function renderEditSection() {
     return (
       <section style={{ marginBottom: 20 }}>
@@ -128,45 +246,195 @@ function deleteRoute() {
           <button onClick={() => setEditing(false)} style={{ marginRight: 8 }}>
             Cancel
           </button>
-          <button onClick={saveChanges}>Save changes</button>
+          <button onClick={() => saveChanges()} disabled={saving}>
+            {saving ? "Saving..." : "Save changes"}
+          </button>
         </div>
       </section>
     );
   }
+
+  if (loading) {
+    return (
+      <div className="completed-trail-container">
+        <p style={{ color: "var(--muted)" }}>Loading trail…</p>
+      </div>
+    );
+  }
+
+  if (!route) return null;
 
   return (
     <div className="completed-trail-container">
       <h1>Completed Trail</h1>
 
       <div className="completed-trail-top">
-        {/* left/main content */}
-        <div className="completed-card" style={{ flex: 1 }}>
-          <h2 style={{ marginTop: 0 }}>
-            {route.title || `${route.origin} → ${route.destination}`}
-          </h2>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <GoogleMap
+              mapContainerStyle={MAP_CONTAINER}
+              center={DEFAULT_CENTER}
+              zoom={14}
+              onLoad={(m) => {
+                setMap(m);
+                mapRef.current = m;
+              }}
+              onUnmount={() => {
+                setMap(null);
+                mapRef.current = null;
+              }}
+              options={{
+                fullscreenControl: false,
+                streetViewControl: false,
+                mapTypeControl: false,
+              }}
+            >
+              {directionsResult && (
+                <DirectionsRenderer
+                  directions={directionsResult}
+                  options={{
+                    suppressMarkers: false,
+                    polylineOptions: {
+                      strokeColor: "#0b63d6",
+                      strokeWeight: 5,
+                      strokeOpacity: 0.85,
+                    },
+                  }}
+                />
+              )}
 
-          <p style={{ marginTop: 6 }}>
-            <strong>Origin:</strong> {route.origin}
-            <br />
-            <strong>Destination:</strong> {route.destination}
-            <br />
-            <strong>Distance:</strong> {route.distance}
-            <br />
-            <strong>Duration:</strong> {route.duration}
-            <br />
-            <strong>Type:</strong> {route.type}
-          </p>
+              {Array.isArray(route.path) && route.path.length > 1 && (
+                <Polyline
+                  path={route.path}
+                  options={{
+                    strokeColor: "#e63946",
+                    strokeWeight: 4,
+                    strokeOpacity: 0.9,
+                  }}
+                />
+              )}
+
+              {hazards.map((h, idx) => (
+                <Marker
+                  key={idx}
+                  position={{ lat: h.lat, lng: h.lng }}
+                  icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
+                  title={h.type}
+                  optimized={false}
+                />
+              ))}
+            </GoogleMap>
+
+            {mapLoading && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(0,0,0,0.6)",
+                  color: "#fff",
+                  padding: "4px 14px",
+                  borderRadius: 20,
+                  fontSize: 13,
+                  pointerEvents: "none",
+                }}
+              >
+                Loading map…
+              </div>
+            )}
+          </div>
+
+          <div className="completed-card">
+            <h2 style={{ marginTop: 0 }}>
+              {route.title || `${route.origin} → ${route.destination}`}
+            </h2>
+            <p style={{ marginTop: 6 }}>
+              <strong>Origin:</strong> {route.origin}
+              <br />
+              <strong>Destination:</strong> {route.destination}
+              <br />
+              <strong>Distance:</strong> {route.distance}
+              <br />
+              <strong>Duration:</strong> {route.duration}
+              <br />
+              <strong>Type:</strong> {route.type}
+            </p>
+          </div>
+
+          {hazards.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ marginBottom: 8 }}>Hazards ({hazards.length})</h3>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                {hazards.map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                    }}
+                  >
+                    <span>
+                      {HAZARD_EMOJI[h.type] || "⚠️"}{" "}
+                      <strong>{h.type}</strong>{" "}
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted)",
+                        }}
+                      >
+                        ({h.lat?.toFixed(4)}, {h.lng?.toFixed(4)})
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => removeHazard(idx)}
+                      style={{
+                        border: "1px solid #c62828",
+                        color: "#c62828",
+                        background: "transparent",
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        cursor: "pointer",
+                        fontSize: 12,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* sidebar */}
         <div className="completed-trail-sidebar">
-
-          <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <button onClick={saveChanges} aria-label="Save route">
-              Save
+          <div
+            style={{
+              marginBottom: 12,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <button onClick={() => saveChanges()} disabled={saving} aria-label="Save route">
+              {saving ? "Saving..." : "Save"}
             </button>
-
-            <button onClick={deleteRoute} className="delete-btn" aria-label="Delete route">
+            <button
+              onClick={deleteRoute}
+              className="delete-btn"
+              aria-label="Delete route"
+            >
               Delete
             </button>
           </div>
@@ -181,20 +449,13 @@ function deleteRoute() {
           </div>
 
           <div style={{ marginTop: 16 }}>
-            <button
-              onClick={() => {
-                // quick actions
-                navigator.clipboard
-                  .writeText(window.location.href);
-              }}
-            >
+            <button onClick={() => navigator.clipboard?.writeText(window.location.href)}>
               Copy Link
             </button>
           </div>
         </div>
       </div>
-      
-      {/* review */}
+
       <section className="review-section" style={{ marginBottom: 20 }}>
         <h3>Review this trail</h3>
 
@@ -247,13 +508,15 @@ function deleteRoute() {
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={saveChanges}>Save review</button>
+          <button onClick={() => saveChanges()} disabled={saving}>
+            {saving ? "Saving..." : "Save review"}
+          </button>
           <button
+            disabled={saving}
             onClick={() => {
               const next = !isPublic;
               setIsPublic(next);
-              // let state update then save
-              setTimeout(saveChanges, 0);
+              saveChanges({ overridePublic: next });
             }}
           >
             Toggle Public & Save

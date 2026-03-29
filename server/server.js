@@ -10,14 +10,6 @@ dotenv.config();
 
 const app = express();
 
-/**
- * CORS: allows only known frontends + cache preflight 
- */
-const ALLOWED_ORIGINS = [
-  "http://localhost:3000",
-  "https://capstone-terrain-trail-neva.vercel.app",
-];
-
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -59,6 +51,54 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 
+/**
+ * 
+ * Route schema - mirrors the shape of the frontend writes to localStroage
+ * `clientId` preserves the original "r_<timestamp>" so it can be match records during a localStorage -> server migration if needed
+ */
+const routeSchema = new mongoose.Schema(
+  {
+    clientId: { type: String, default: null },
+    owner: {  type: mongoose.Schema.Types.ObjectId, ref: "User", index: true  },
+    title: {  type: String, trim: true, default: "" },
+    origin: { type: String, trim: true, default: "" },
+    destination: {  type: String, trim: true, default: "" },
+    distance: { type: String, default: "" },
+    duration: { type: String, default: "" },
+    type: { type: String, default: "👣" },
+    tags: { type: [String], default: [] },
+    public: {type: Boolean, default: false  },
+    review: {
+      stars: {  type: Number, min: 0, max: 5, default: 0  },
+      terrain: {  type: Number, min: 0, max: 10, default: 5 },
+      comment: { type: String, default: "" },
+      updatedAt: {  type: Date },
+    },
+    // GPS-tracked polyline points
+    path: { type: [{  lat: Number, lng: Number  }], default: [] },
+    // Directions API gemomtry (used by explore hover preview)
+    encodedPolyline:  { type: String, default: null },
+    bounds: {
+      north: Number,
+      east: Number,
+      south: Number,
+      west: Number,
+    },
+    hazards: {
+      type: [{
+        lat: { type: Number},
+        lng:{ type: Number },
+        type: { type: String },
+        createdAt: { type: String },
+      }],
+      default: [],
+    },
+  },
+  { timestamps: true  }
+);
+
+const Route = mongoose.models.Route || mongoose.model("Route", routeSchema);
+
 /*  Auth middleware for settings routes */
 
 function requireAuth(req, res, next) {
@@ -84,6 +124,7 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
+
 
 /* ===== Auth routes ===== */
 app.post("/api/signup", async (req, res) => {
@@ -286,6 +327,7 @@ app.delete("/api/account", requireAuth, async(req, res) => {
     const user = await User.findById(req.userId).select("_id");
     if (!user) return res.status(404).json({ message: "User not found"});
 
+    await Route.deleteMany({ owner: req.userId }); // cascade-delete user's routes
     await User.deleteOne({ _id: req.userId });
 
     // clear cached account data for this user
@@ -296,6 +338,203 @@ app.delete("/api/account", requireAuth, async(req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// ROUTES API
+
+/**
+ * GET /api/routes 
+ * All routes owned by the authenticed user, newest-first
+ */
+app.get("/api/routes", requireAuth, async (req, res) => {
+  try {
+    const routes = await Route.find({ owner: req.userId }).sort({ createdAt: -1 }).lean();
+    
+    res.json({ routes: routes.map(normalizeRoute) });
+  }
+  catch (err) {
+    console.error("GET /api/routes error", err);
+    res.status(500).json({  message: "Server error" });
+  }
+});
+
+/**
+ *  GET /api/routes/public
+ *  All public  routes - mirrors what Explore reads
+ */
+app.get("/api/routes/public", requireAuth, async (req, res) => {
+  try {
+    const routes = await Route.find({ public: true }).sort({ createdAt: -1 }).lean();
+ 
+    res.json({ routes: routes.map(normalizeRoute) });
+  } catch (err) {
+    console.error("GET /api/routes/public error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ *  GET /api/routes/:id
+ *  Single route by MongoDB _id.
+ *  see a public route (e.g. via a shared link inside the app).
+ */
+app.get("/api/routes/:id", requireAuth, async (req, res) => {
+  try {
+    const route = await Route.findById(req.params.id).lean();
+    if (!route) return res.status(404).json({ message: "Route not found "});
+
+    const isOwner = req.userId && String(route.owner) === String(req.userId);
+    const isPublic = route.public;
+
+    if (!isOwner && !isPublic) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    res.json({ route: normalizeRoute(route) });
+  }
+  catch (err) {
+    console.error("GET /api/routes/:id error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * POST /api/routes
+ * Create one route, or bulk-import many.
+ * 
+ * Single: body = { title, origin, destination, ... }
+ * Bulk: body = { routes: [ { ... }, { ... } ] }
+ * 
+ * Bulk import is intended for the one-time migration of localStorage data.
+ * The frontend can call it after first login to sync existing local routes.
+ */
+app.post("/api/routes", requireAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+
+    // Bulk import
+    if (Array.isArray(body.routes)) {
+      const docs = body.routes.map((r) => buildRouteDoc(r, req.userId));
+      const inserted = await Route.insertMany(docs, { ordered: false });
+      return res.status(201).json({
+        message: `${inserted.length} routes imported`,
+        routes: inserted.map((d) => normalizeRoute(d.toObject())),
+      });
+    }
+
+    // Single route
+    const doc = buildRouteDoc(body, req.userId);
+    const created = await Route.create(doc);
+    res.status(201).json({ route: normalizeRoute(created.toObject()) });
+  }
+  catch (err) {
+    console.error("POST /api/routes error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * PUT /api/routes/:id
+ * Full update - must be the owner/
+ */
+app.put("/api/routes/:id", requireAuth, async(req, res) => {
+  try {
+    const route = await Route.findById(req.params.id);
+    if (!route) return res.status(404).json({ message: "Route not found" });
+
+    if (String(route.owner) !== String(req.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const update = buildRouteDoc(req.body || {}, req.userId);
+    Object.assign(route, update);
+    await route.save();
+
+    res.json({ route: normalizeRoute(route.toObject()) });
+  }
+  catch (err) {
+    console.error("PUT /api/routes/:id error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * DELETE /api/routes/:id
+ * Must be the owner
+ */
+app.delete("/api/routes/:id", requireAuth, async(req, res) => {
+  try {
+    const route = await Route.findById(req.params.id);
+    if (!route) return res.status(404).json({ message: "Route not found" });
+
+    if (String(route.owner) !== String(req.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    await Route.deleteOne({ _id: req.params.id });
+    res.json({ message: "Route deleted " });
+  }
+  catch (err) {
+    console.error("DELETE /api/routes/:id error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// HELPERS
+
+/**
+ * Safely coerces hazards to an array of objects regardless of whether
+ * the client sent a real array, a JSON-stringified array, or nothing.
+ */
+function parseHazards(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  return [];
+}
+
+/** Maps a client-side route object -> Mongoose document fields */
+function buildRouteDoc(r, ownedId) {
+  return {
+    clientId: r.id || r.clientId || null,
+    owner: ownedId,
+    title: r.title  || "",
+    origin: r.origin  || "",
+    destination: r.destination  || "",
+    distance: r.distance  || "",
+    duration: r.duration  || "",
+    type: r.type  || "👣",
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    public: Boolean(r.public),
+    review: r.review
+      ? {
+        stars: Number(r.review.stars) || 0,
+        terrain: r.review.terrain != null ? Number(r.review.terrain) : 5,
+        comment: r.review.comment || "",
+        updatedAt: r.review.updatedAt ? new Date(r.review.updatedAt) : new Date(),
+      }
+      : undefined,
+    path: Array.isArray(r.path) ? r.path : [],
+    encodedPolyline: r.encodedPolyline || null,
+    bounds: r.bounds  || undefined,
+    hazards: parseHazards(r.hazards),
+  };
+}
+
+/**
+ * Converts a Magoose lean doc -> the shape the frontend expects.
+ * Renames _id -> id to stay compatible with the localStorage schema.
+ */
+function normalizeRoute(doc) {
+  const { _id, __v, ...rest } = doc;
+  return { ...rest, id: String(_id) };
+}
 
 async function start() {
   try {
