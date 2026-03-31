@@ -1,12 +1,6 @@
 /* global google */
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
-import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { GoogleMap, DirectionsRenderer, Polyline } from "@react-google-maps/api";
 import "../components/Explore.css";
 
 // Map container style
@@ -17,6 +11,7 @@ const mapContainerStyle = {
 
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
+
 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
@@ -66,6 +61,7 @@ async function voteOnRoute(routeId, vote) {
 export default function Explore() {
   const mapRefInternal = useRef(null);
   const directionsCache = useRef({});
+  const [previewPath, setPreviewPath] = useState([]);
 
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
@@ -116,20 +112,27 @@ export default function Explore() {
     return `Top ${modeMap[activeFilter] || "Trails"}`;
   };
 
-  const handleViewOnMap = useCallback(
-    async (route) => {
-      if (!window.google?.maps || !route?.origin || !route?.destination) {
-        return;
-      }
+  const handleViewOnMap = useCallback(async (route) => {
+    if (!window.google?.maps || !route?.origin || !route?.destination) return;
+    
+    // TOGGLE LOGIC: If the clicked route is already selected, clear the map
+    if (selectedRouteId === route.id) {
+      setSelectedRouteId(null);
+      setPreviewDirections(null);
+      setPreviewPath([]);
+      return;
+    }
+    if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
+      setPreviewDirections(null);
+      setPreviewPath(route.path);
 
-      // Toggle off if same route clicked again
-      if (selectedRouteId === route.id) {
-        setSelectedRouteId(null);
-        setPreviewDirections(null);
-        return;
-      }
+      const bounds = new window.google.maps.LatLngBounds();
+      route.path.forEach((p) => bounds.extend(p));
+      mapRefInternal.current.fitBounds(bounds, 40);
 
-      setSelectedRouteId(route.id);
+      return;
+    }
+    setSelectedRouteId(route.id);
 
       if (directionsCache.current[route.id]) {
         const cached = directionsCache.current[route.id];
@@ -308,16 +311,27 @@ export default function Explore() {
             zoom={13}
             onLoad={onMapLoad}
           >
-            {previewDirections && (
-              <DirectionsRenderer
-                directions={previewDirections}
+            {previewPath.length > 1 ? (
+              <Polyline
+                path={previewPath}
                 options={{
-                  polylineOptions: {
-                    strokeColor: "#0b63d6",
-                    strokeWeight: 5,
-                  },
+                  strokeColor: "#0b63d6",
+                  strokeWeight: 5,
+                  strokeOpacity: 0.85,
                 }}
               />
+            ) : (
+              previewDirections && (
+                <DirectionsRenderer
+                  directions={previewDirections}
+                  options={{
+                    polylineOptions: {
+                      strokeColor: "#0b63d6",
+                      strokeWeight: 5,
+                    },
+                  }}
+                />
+              )
             )}
           </GoogleMap>
 
