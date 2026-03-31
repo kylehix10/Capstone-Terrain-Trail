@@ -199,46 +199,67 @@ export default function Library() {
   // ── load route onto map ───────────────────────────────────────────────────
  
   async function loadRoute(route) {
-    if (!window.google?.maps) return;
- 
-    setLoadingRouteId(route.id);
-    setSelectedRouteId(route.id);
-    setLoadedReview(null);
-    setLoadedHazards([]);
-    setLoadedPath([]);
- 
-    try {
-      const service = new window.google.maps.DirectionsService();
-      const result  = await service.route({
-        origin:      route.origin,
-        destination: route.destination,
-        travelMode:  travelModeFromType(route.type),
-        unitSystem:  window.google.maps.UnitSystem.IMPERIAL,
-      });
- 
-      setDirectionsResult(result);
- 
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || route.distance || "");
-      setDurationText(leg.duration?.text || route.duration || "");
- 
-      const lat = leg.start_location.lat();
-      const lng = leg.start_location.lng();
-      setOriginPosition({ lat, lng });
-      setMapCenter({ lat, lng });
- 
-      map?.fitBounds(result.routes[0].bounds);
-      setLoadedReview(route.review || null);
+  if (!window.google?.maps) return;
+
+  setLoadingRouteId(route.id);
+  setSelectedRouteId(route.id);
+  setLoadedReview(null);
+  setLoadedHazards([]);
+  setLoadedPath([]);
+
+  try {
+    setLoadedReview(route.review || null);
     setLoadedHazards(Array.isArray(route.hazards) ? route.hazards : []);
-    setLoadedPath(Array.isArray(route.path) ? route.path : []);
-    } catch (err) {
-      console.error("Failed to load route:", err);
-      alert("Could not load route.");
-      setLoadedReview(null);
-    } finally {
-      setLoadingRouteId(null);
+
+    // Recorded routes: use the saved GPS path only.
+    if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
+      setDirectionsResult(null);
+      setLoadedPath(route.path);
+
+      const bounds = new window.google.maps.LatLngBounds();
+      route.path.forEach((p) => bounds.extend(p));
+      mapRef.current?.fitBounds(bounds, 40);
+
+      const first = route.path[0];
+      if (first) {
+        setOriginPosition(first);
+        setMapCenter(first);
+      }
+
+      setDistanceText(route.distance || "");
+      setDurationText(route.duration || "");
+      return;
     }
+
+    // Normal routes: keep Google Directions exactly as before.
+    const service = new window.google.maps.DirectionsService();
+    const result = await service.route({
+      origin: route.origin,
+      destination: route.destination,
+      travelMode: travelModeFromType(route.type),
+      unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+    });
+
+    setDirectionsResult(result);
+
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance?.text || route.distance || "");
+    setDurationText(leg.duration?.text || route.duration || "");
+
+    const lat = leg.start_location.lat();
+    const lng = leg.start_location.lng();
+    setOriginPosition({ lat, lng });
+    setMapCenter({ lat, lng });
+
+    mapRef.current?.fitBounds(result.routes[0].bounds);
+  } catch (err) {
+    console.error("Failed to load route:", err);
+    alert("Could not load route.");
+    setLoadedReview(null);
+  } finally {
+    setLoadingRouteId(null);
   }
+}
 
   // ── delete ────────────────────────────────────────────────────────────────
  
@@ -351,6 +372,7 @@ export default function Library() {
     map.setZoom(14);
   }
 
+
   return (
     <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
       <h2>Library</h2>
@@ -460,34 +482,42 @@ export default function Library() {
         </div>
       )}
  
+        
+
       <div style={{ display: "flex", gap: 16 }}>
         {/* Map */}
         <div style={{ flex: 1 }}>
           <GoogleMap
-            mapContainerStyle={containerStyle}
-            center={mapCenter}
-            zoom={14}
-            onLoad={(m) => { setMap(m); mapRef.current = m; }}
-            onUnmount={() => { setMap(null); mapRef.current = null; }}
-            options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
-          >
-            {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-            {loadedPath.length > 1 && (
-              <Polyline
-                path={loadedPath}
-                options={{ strokeColor: "#e63946", strokeWeight: 4, strokeOpacity: 0.9 }}
-              />
-            )}
-            {loadedHazards.map((h, idx) => (
-              <Marker
-                key={idx}
-                position={{ lat: h.lat, lng: h.lng }}
-                icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
-                title={h.type}
-                optimized={false}
-              />
-            ))}
-          </GoogleMap>
+          mapContainerStyle={containerStyle}
+          center={mapCenter}
+          zoom={14}
+          onLoad={(m) => { setMap(m); mapRef.current = m; }}
+          onUnmount={() => { setMap(null); mapRef.current = null; }}
+          options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
+        >
+          {loadedPath.length > 1 ? (
+            <Polyline
+              path={loadedPath}
+              options={{
+                strokeColor: "#e63946",
+                strokeWeight: 4,
+                strokeOpacity: 0.9,
+              }}
+            />
+          ) : (
+            directionsResult && <DirectionsRenderer directions={directionsResult} />
+          )}
+
+          {loadedHazards.map((h, idx) => (
+            <Marker
+              key={idx}
+              position={{ lat: h.lat, lng: h.lng }}
+              icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
+              title={h.type}
+              optimized={false}
+            />
+          ))}
+        </GoogleMap>
  
           {(distanceText || durationText) && (
             <div style={{ marginTop: 8 }}>

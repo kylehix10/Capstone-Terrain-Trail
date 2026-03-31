@@ -587,6 +587,7 @@ export default function CreateTrail() {
         public: false,
         review: null,
         path: trackedPath,
+        recorded: true,
         hazards,
       };
 
@@ -611,36 +612,48 @@ export default function CreateTrail() {
   }
 
   async function setOriginToUserLocation() {
-    if (!navigator.geolocation || !google?.maps) {
-      setLocationMessage("Location permission required.");
-      return;
-    }
-    setLocationMessage("");
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const latLng = new window.google.maps.LatLng(latitude, longitude);
-        new window.google.maps.Geocoder().geocode({ location: latLng }, (results, status) => {
-          if (status === "OK" && results?.[0]) {
-            if (originInputRef.current)
-              originInputRef.current.value = results[0].formatted_address;
-            setOriginPosition({ lat: latitude, lng: longitude });
-            setMapCenter({ lat: latitude, lng: longitude });
-            setLocationMessage("");
-          } else {
-            setLocationMessage("Could not get your location.");
-          }
-        });
-      },
-      (err) => {
-        setLocationMessage(
-          err?.code === 1 ? "Location permission required." : "Could not get your location."
-        );
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
+  if (!navigator.geolocation || !window.google?.maps) {
+    setLocationMessage("Location permission required.");
+    return;
   }
+
+  setLocationMessage("");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+
+      const exactPoint = { lat: latitude, lng: longitude };
+
+      // Use the raw coordinates as the real start point.
+      setOriginPosition(exactPoint);
+      setMapCenter(exactPoint);
+
+      // Show the exact coordinates instead of a nearby guessed address.
+      if (originInputRef.current) {
+        originInputRef.current.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+
+      if (accuracy && accuracy > 50) {
+        setLocationMessage(
+          `Location is a little imprecise right now (${Math.round(accuracy)}m), but the route will use the GPS point.`
+        );
+      } else {
+        setLocationMessage("");
+      }
+    },
+    (err) => {
+      setLocationMessage(
+        err?.code === 1 ? "Location permission required." : "Could not get your location."
+      );
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
+}
 
   useEffect(() => {
     if (!window.google?.maps?.places) return;

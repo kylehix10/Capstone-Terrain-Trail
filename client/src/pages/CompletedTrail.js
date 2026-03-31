@@ -266,6 +266,9 @@ export default function CompletedTrail() {
 
   if (!route) return null;
 
+  const isRecordedRoute = Array.isArray(route?.path) && route.path.length > 1;
+
+
   return (
     <div className="completed-trail-container">
       <h1>Completed Trail</h1>
@@ -291,7 +294,19 @@ export default function CompletedTrail() {
                 mapTypeControl: false,
               }}
             >
-              {directionsResult && (
+              
+
+            {isRecordedRoute ? (
+              <Polyline
+                path={route.path}
+                options={{
+                  strokeColor: "#e63946",
+                  strokeWeight: 4,
+                  strokeOpacity: 0.9,
+                }}
+              />
+            ) : (
+              directionsResult && (
                 <DirectionsRenderer
                   directions={directionsResult}
                   options={{
@@ -303,18 +318,9 @@ export default function CompletedTrail() {
                     },
                   }}
                 />
-              )}
+              )
+            )}
 
-              {Array.isArray(route.path) && route.path.length > 1 && (
-                <Polyline
-                  path={route.path}
-                  options={{
-                    strokeColor: "#e63946",
-                    strokeWeight: 4,
-                    strokeOpacity: 0.9,
-                  }}
-                />
-              )}
 
               {hazards.map((h, idx) => (
                 <Marker
