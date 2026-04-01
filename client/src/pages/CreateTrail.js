@@ -625,18 +625,28 @@ export default function CreateTrail() {
 
       const exactPoint = { lat: latitude, lng: longitude };
 
-      // Use the raw coordinates as the real start point.
+      // Keep GPS coords for routing
       setOriginPosition(exactPoint);
       setMapCenter(exactPoint);
 
-      // Show the exact coordinates instead of a nearby guessed address.
-      if (originInputRef.current) {
-        originInputRef.current.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-      }
+      // Convert coords → readable place
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: exactPoint }, (results, status) => {
+        if (status === "OK" && results?.[0]) {
+          if (originInputRef.current) {
+            originInputRef.current.value = results[0].formatted_address;
+          }
+        } else {
+          // fallback if geocoding fails
+          if (originInputRef.current) {
+            originInputRef.current.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          }
+        }
+      });
 
       if (accuracy && accuracy > 50) {
         setLocationMessage(
-          `Location is a little imprecise right now (${Math.round(accuracy)}m), but the route will use the GPS point.`
+          `Location is a little imprecise (${Math.round(accuracy)}m), but using nearest place.`
         );
       } else {
         setLocationMessage("");
@@ -644,7 +654,9 @@ export default function CreateTrail() {
     },
     (err) => {
       setLocationMessage(
-        err?.code === 1 ? "Location permission required." : "Could not get your location."
+        err?.code === 1
+          ? "Location permission required."
+          : "Could not get your location."
       );
     },
     {

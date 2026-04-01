@@ -63,6 +63,9 @@ export default function CompletedTrail() {
   const undoTimeoutRef = useRef(null);
   const lastDeletedRef = useRef(null);
 
+  const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+
   const mapRef = useRef(null);
 
   const [route, setRoute] = useState(null);
@@ -108,6 +111,7 @@ export default function CompletedTrail() {
         setTerrain(found.review?.terrain ?? 5);
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
+        setPhotoPreview(found.review?.photo || null);
       } catch (e) {
         console.error("fetchRoute error", e);
         navigate("/app/library", { replace: true });
@@ -166,6 +170,7 @@ export default function CompletedTrail() {
         stars,
         terrain,
         comment,
+        photo: photoPreview,
         updatedAt: new Date().toISOString(),
       },
     };
@@ -195,6 +200,19 @@ export default function CompletedTrail() {
       setSaving(false);
     }
   }
+
+  function handlePhotoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  setPhoto(file);
+
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setPhotoPreview(reader.result);
+  };
+  reader.readAsDataURL(file);
+}
 
  async function deleteRoute() {
   try {
@@ -393,6 +411,7 @@ export default function CompletedTrail() {
                       background: "var(--surface)",
                     }}
                   >
+                    
                     <span>
                       {HAZARD_EMOJI[h.type] || "⚠️"}{" "}
                       <strong>{h.type}</strong>{" "}
@@ -519,6 +538,43 @@ export default function CompletedTrail() {
             style={{ width: "100%" }}
           />
         </div>
+
+        <div style={{ marginBottom: 12 }}>
+  <label style={{ display: "block", marginBottom: 6 }}>
+    Add Route Photo (optional)
+  </label>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handlePhotoUpload}
+  />
+
+  {photoPreview && (
+    <div style={{ marginTop: 10 }}>
+      <img
+        src={photoPreview}
+        alt="Route preview"
+        style={{
+          width: "100%",
+          maxHeight: 200,
+          objectFit: "cover",
+          borderRadius: 8,
+        }}
+      />
+
+      <button
+        onClick={() => {
+          setPhoto(null);
+          setPhotoPreview(null);
+        }}
+        style={{ marginTop: 6 }}
+      >
+        Remove photo
+      </button>
+    </div>
+  )}
+</div>
 
         <div style={{ marginBottom: 12 }}>
           <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
