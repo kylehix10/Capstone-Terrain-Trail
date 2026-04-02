@@ -1,37 +1,119 @@
-/* Origin input + location button wrapper */
+/* =========================================================
+   CreateTrail.css — CLEAN FINAL VERSION
+   - No duplicates
+   - Matches site styling
+   - Keeps all current class names
+   - Controls stacked on LEFT side of map
+   ========================================================= */
+
+/* =============================
+   GLOBAL BUTTON STYLE
+============================= */
+.create-trail-container button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-trail-container button:hover {
+  background: var(--surface-2);
+}
+
+.create-trail-container button:active {
+  transform: scale(0.97);
+}
+
+/* =============================
+   INPUTS
+============================= */
+.create-trail-container input {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+}
+
 .origin-input-wrapper {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-/* Use My Location button */
 .use-location-btn {
-  padding: 8px;
+  padding: 8px 10px;
   font-size: 14px;
 }
 
 .use-location-btn:hover {
-  background: #e8e8e8;
+  background: var(--surface-2);
 }
 
-.form-input {
-  padding: 8px;
-  width: 260px;   /* same width for both */
-  box-sizing: border-box;
+/* =============================
+   TRANSPORT BUTTONS
+============================= */
+.transport-toolbar button {
+  font-size: 16px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  cursor: pointer;
 }
 
-/* ================= MAP / BUTTON LAYOUT ================= */
-/* Ensure map wrapper is the positioning context */
+.transport-toolbar button[aria-pressed="true"] {
+  border: 2px solid var(--brand) !important;
+  background: rgba(115, 0, 10, 0.1) !important;
+}
+
+/* =============================
+   LAYOUT
+============================= */
+.map-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.map-section {
+  flex: 2;
+  min-width: 0;
+}
+
+.map-sidebar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* =============================
+   MAP CONTAINER
+============================= */
 .map-container {
   position: relative;
   width: 100%;
-  /* default desktop height (optional) */
-  height: 500px;        /* or whatever desktop height you want */
+  height: 500px;
 }
 
-/* ===== Shared Google-style Map Button ===== */
-/* New shared visual style for map buttons (Start, Pause, Stop, Recenter, etc.) */
+/* =============================
+   MAP BUTTONS (Google style)
+============================= */
 .map-container .map-btn {
   background: #ffffff !important;
   border: 1px solid #dadce0 !important;
@@ -39,180 +121,58 @@
   border-radius: 8px !important;
   font-size: 14px !important;
   cursor: pointer !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
-  transition: background 0.2s ease !important;
-  pointer-events: auto !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22) !important;
+  transition: all 0.2s ease !important;
 }
 
 .map-container .map-btn:hover {
   background: #f1f3f4 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24) !important;
 }
 
-/* Floating Start/Pause/Stop controls: top-right INSIDE the map */
-/* NOTE: visual styles for buttons moved to .map-btn; this container handles layout and placement */
+/* =============================
+   FLOATING CONTROLS (TOP RIGHT)
+============================= */
 .map-container .floating-controls {
-  position: absolute !important;
-  top: 12px !important;
-  right: 56px !important; /* leave room for fullscreen control */
-  left: auto !important;
-  bottom: auto !important;
-  transform: none !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  padding: 8px !important;
-  background: rgba(255,255,255,0.98) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important;
-  z-index: 1000 !important;
-  min-height: 40px;
+  position: absolute;
+  top: 12px;
+  right: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
 }
 
-/* If the floating control buttons are direct children, ensure they use the shared .map-btn style */
-.map-container .floating-controls .map-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* =============================
+   LEFT CONTROL STACK
+   Hazard above Recenter
+============================= */
+.map-controls {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  align-items: flex-start;
 }
 
-/* Recenter pinned bottom-left INSIDE the map */
-/* Use the shared .map-btn styles plus positioning */
-.map-container .recenter-btn {
-  position: absolute !important;
-  left: 12px !important;
-  bottom: 12px !important;
-  top: auto !important;
-  right: auto !important;
-  z-index: 1000 !important;
-  /* visual appearance delegated to .map-btn; keep a small override for size if needed */
-  padding: 8px 10px !important;
-  border-radius: 8px !important;
-  background: white !important;
-  border: 1px solid rgba(0,0,0,0.12) !important;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.12) !important;
-  cursor: pointer;
-}
-
-/* ================= MOBILE OVERRIDES (CONSOLIDATED) ================= */
-@media (max-width: 640px) {
-  /* outer wrapper padding */
-  .create-trail-container {
-    padding: 12px !important;
-  }
-
-  /* stack the form rows on phones */
-  .create-trail-form-row {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-  }
-
-  /* inputs full width and bigger tap target */
-  .create-trail-input {
-    width: 100% !important;
-    font-size: 16px !important;
-    padding: 12px !important;
-    box-sizing: border-box !important;
-
-    /* dark-mode friendly */
-    background: var(--surface) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    outline: none !important;
-  }
-
-  /* transport toolbar horizontal scroll */
-  .transport-toolbar {
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-    -webkit-overflow-scrolling: touch;
-    gap: 8px;
-    padding: 6px 2px;
-
-    /* dark-mode friendly */
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .transport-toolbar > * {
-    display: inline-flex;
-    vertical-align: middle;
-    margin-right: 8px;
-  }
-
-  /* Map sizing on small screens: make the wrapper match the visible map height */
-  .map-container {
-    height: 40vh !important;    /* match the visual mobile height you want */
-    min-height: 240px !important;
-    box-sizing: border-box;
-  }
-
-  /* Floating controls remain INSIDE the map (top-right) on mobile */
-  .map-container .floating-controls {
-    position: absolute !important;
-    top: 12px !important;
-    right: 56px !important;
-    bottom: auto !important;
-    left: auto !important;
-    transform: none !important;
-    flex-direction: column !important;
-    z-index: 1500 !important;
-    background: rgba(255,255,255,0.96) !important;
-    padding: 6px !important;
-  }
-
-  /* Recenter stays bottom-left INSIDE map on mobile */
-  .map-container .recenter-btn {
-    position: absolute !important;
-    left: 12px !important;
-    bottom: 12px !important;
-    right: auto !important;
-    top: auto !important;
-    z-index: 1600 !important;
-  }
-
-  /* HIGH-PRIORITY safety override to counteract other rules (keeps recenter pinned) */
-  .map-container > .recenter-btn,
-  .map-container .recenter-btn {
-    position: absolute !important;
-    left: 12px !important;
-    bottom: 12px !important;
-    right: auto !important;
-    top: auto !important;
-    transform: none !important;
-    margin: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 99999 !important;
-    pointer-events: auto !important;
-  }
-}
-
-/* ================= Minor additional tweaks ================= */
-/* If you need to nudge the floating-controls further left on large screens, change this value */
-.map-container .floating-controls {
-  right: 56px !important;
-}
-
-
-
-.map-container {
+/* hazard wrapper should stay in the stack */
+.hazard-control {
   position: relative;
 }
 
-.hazard-control {
-  position: absolute;
-  right: 12px;
-  bottom: 135px; /* move it UP */
-  z-index: 20;
-}
-
-.hazard-btn {
-  margin-bottom: 6px;
-}
-
+/* make the hazard menu open upward and align to left stack */
 .hazard-menu {
+  position: absolute;
+  left: 0;
+  right: auto;
+  bottom: calc(100% + 8px);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -221,7 +181,12 @@
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  min-width: 170px;
+  min-width: 180px;
+  z-index: 1001;
+}
+
+.hazard-btn {
+  margin-bottom: 0;
 }
 
 .hazard-menu-item {
@@ -231,32 +196,82 @@
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .hazard-menu-item:hover {
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* recenter should just live in the stack, not be absolute on its own */
+.map-container .recenter-btn {
+  position: relative !important;
+  left: auto !important;
+  bottom: auto !important;
+  right: auto !important;
+  top: auto !important;
+}
+
+/* make the stack feel like a small map control cluster */
+.map-controls .map-btn {
+  min-width: 104px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =============================
+   SNACKBAR
+============================= */
 .snackbar {
   position: fixed;
   left: 50%;
   bottom: 30px;
   transform: translateX(-50%);
-  background-color: #333;
+  background: #333;
   color: #fff;
   padding: 14px 20px;
   border-radius: 6px;
   font-size: 14px;
   z-index: 9999;
-  animation: fadein 0.3s, fadeout 0.3s 2.7s;
 }
 
-@keyframes fadein {
-  from { opacity: 0; bottom: 0; }
-  to { opacity: 1; bottom: 30px; }
+/* =============================
+   MOBILE
+============================= */
+@media (max-width: 768px) {
+  .map-layout {
+    flex-direction: column;
+  }
+
+  .map-section,
+  .map-sidebar {
+    width: 100%;
+  }
+
+  .map-container {
+    height: 40vh;
+    min-height: 280px;
+  }
 }
 
-@keyframes fadeout {
-  from { opacity: 1; }
-  to { opacity: 0; }
+@media (max-width: 640px) {
+  .create-trail-container {
+    padding: 12px;
+  }
+
+  .transport-toolbar {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 8px;
+  }
+
+  .map-controls {
+    left: 12px;
+    bottom: 12px;
+  }
+
+  .map-controls .map-btn {
+    min-width: 96px;
+  }
 }
