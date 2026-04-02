@@ -1,6 +1,11 @@
 /* global google */
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
 import "../components/Explore.css";
 
@@ -10,83 +15,18 @@ const mapContainerStyle = {
   height: "450px",
 };
 
-// Default center (Columbia, SC)
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
-// Travel Mode Type
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
-  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
-  if (type === "🚲" || type === "🛴" || type === "🛹") {
-    return window.google.maps.TravelMode.BICYCLING;
-  }
-  return window.google.maps.TravelMode.WALKING;
-}
-
-function getRouteRating(route) {
-  const stars = Number(route?.review?.stars);
-  return Number.isFinite(stars) ? stars : 0;
-}
-
-function getRouteTimestamp(route) {
-  const candidates = [
-    route?.createdAt,
-    route?.created_at,
-    route?.updatedAt,
-    route?.updated_at,
-    route?.publishedAt,
-    route?.published_at,
-    route?.date,
-    route?.timestamp,
-    route?.review?.createdAt,
-    route?.review?.created_at,
-    route?.id,
-  ];
-
-  for (const value of candidates) {
-    if (value == null) continue;
-
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-
-    const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-      return numeric;
-    }
-  }
-
-  return 0;
-}
-
-function sortPublicRoutes(routes, sortBy) {
-  const sorted = [...routes];
-
-  sorted.sort((a, b) => {
-    if (sortBy === "newest") {
-      const timeDiff = getRouteTimestamp(b) - getRouteTimestamp(a);
-      if (timeDiff !== 0) return timeDiff;
-
-      const ratingDiff = getRouteRating(b) - getRouteRating(a);
-      if (ratingDiff !== 0) return ratingDiff;
-    } else {
-      const ratingDiff = getRouteRating(b) - getRouteRating(a);
-      if (ratingDiff !== 0) return ratingDiff;
-
-      const timeDiff = getRouteTimestamp(b) - getRouteTimestamp(a);
-      if (timeDiff !== 0) return timeDiff;
-    }
-
-    return String(a?.title ?? "").localeCompare(String(b?.title ?? ""));
-  });
-
-  return sorted;
+  const modeMap = {
+    "🚗": "DRIVING",
+    "🚲": "BICYCLING",
+    "🛴": "BICYCLING",
+    "🛹": "BICYCLING",
+  };
+  return window.google.maps.TravelMode[modeMap[type] || "WALKING"];
 }
 
 async function fetchPublicRoutes() {
@@ -98,31 +38,46 @@ async function fetchPublicRoutes() {
     },
   });
 
-  if (res.status === 401) throw new Error("Not authenticated");
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
   const data = await res.json();
   return Array.isArray(data.routes) ? data.routes : [];
 }
 
-export default function Explore() {
-  const navigate = useNavigate();
+async function voteOnRoute(routeId, vote) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`${API_BASE}/api/routes/${routeId}/vote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ vote }),
+  });
 
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || `Vote failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.route;
+}
+
+export default function Explore() {
   const mapRefInternal = useRef(null);
-  const hoverTimerRef = useRef(null);
   const directionsCache = useRef({});
 
-  // data / loading
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [voteLoadingIds, setVoteLoadingIds] = useState({});
 
-  // filters
+  // Filters
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("highestRated");
 
-  // map preview
-  const [previewRoute, setPreviewRoute] = useState(null);
+  // Map/View States
+  const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [previewDirections, setPreviewDirections] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -130,7 +85,6 @@ export default function Explore() {
     mapRefInternal.current = map;
   }, []);
 
-  // load public routes from server
   const loadPublicRoutes = useCallback(async () => {
     setLoadingPublic(true);
     setFetchError(null);
@@ -138,9 +92,7 @@ export default function Explore() {
       const routes = await fetchPublicRoutes();
       setPublicRoutes(routes);
     } catch (e) {
-      console.error("loadPublicRoutes error", e);
       setFetchError("Could not load public trails. Please try again.");
-      setPublicRoutes([]);
     } finally {
       setLoadingPublic(false);
     }
@@ -150,100 +102,158 @@ export default function Explore() {
     loadPublicRoutes();
   }, [loadPublicRoutes]);
 
-  // fetch directions for a route and pan map
-  const fetchPreviewDirections = useCallback(async (route) => {
-    if (!window.google?.maps) return;
-    if (!route?.origin || !route?.destination) return;
+  const getSectionHeader = () => {
+    const modeMap = {
+      All: "Public Trails",
+      "👣": "Walking Trails",
+      "🚲": "Biking Trails",
+      "🚗": "Driving Trails",
+      "🛹": "Skateboarding Trails",
+      "🏃": "Running Trails",
+      "🛴": "Scootering Trails",
+      "♿": "Wheelchair Trails",
+    };
+    return `Top ${modeMap[activeFilter] || "Trails"}`;
+  };
 
-    // use cache to avoid redundant API calls
-    const cacheKey = String(route.id ?? `${route.origin}-${route.destination}-${route.type}`);
-    if (directionsCache.current[cacheKey]) {
-      const cached = directionsCache.current[cacheKey];
-      setPreviewDirections(cached);
-
-      if (mapRefInternal.current && cached?.routes?.[0]?.bounds) {
-        mapRefInternal.current.fitBounds(cached.routes[0].bounds, 40);
+  const handleViewOnMap = useCallback(
+    async (route) => {
+      if (!window.google?.maps || !route?.origin || !route?.destination) {
+        return;
       }
-      return;
-    }
 
-    setPreviewLoading(true);
-    try {
-      const svc = new window.google.maps.DirectionsService();
-
-      const result = await svc.route({
-        origin: route.origin,
-        destination: route.destination,
-        travelMode: travelModeFromType(route.type) || window.google.maps.TravelMode.WALKING,
-      });
-
-      directionsCache.current[cacheKey] = result;
-      setPreviewDirections(result);
-
-      if (mapRefInternal.current && result?.routes?.[0]?.bounds) {
-        mapRefInternal.current.fitBounds(result.routes[0].bounds, 40);
+      // Toggle off if same route clicked again
+      if (selectedRouteId === route.id) {
+        setSelectedRouteId(null);
+        setPreviewDirections(null);
+        return;
       }
-    } catch (err) {
-      console.warn("Preview directions failed:", err);
-      setPreviewDirections(null);
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, []);
 
-  // hover handlers with 300ms debounce
-  const handleCardMouseEnter = useCallback((route) => {
-    clearTimeout(hoverTimerRef.current);
+      setSelectedRouteId(route.id);
 
-    hoverTimerRef.current = setTimeout(() => {
-      setPreviewRoute(route);
-      fetchPreviewDirections(route);
-    }, 300);
-  }, [fetchPreviewDirections]);
+      if (directionsCache.current[route.id]) {
+        const cached = directionsCache.current[route.id];
+        setPreviewDirections(cached);
+        if (mapRefInternal.current && cached?.routes?.[0]?.bounds) {
+          mapRefInternal.current.fitBounds(cached.routes[0].bounds, 40);
+        }
+        return;
+      }
 
-  const handleCardMouseLeave = useCallback(() => {
-    clearTimeout(hoverTimerRef.current);
-    setPreviewRoute(null);
-    setPreviewDirections(null);
-    setPreviewLoading(false);
+      setPreviewLoading(true);
+      try {
+        const svc = new window.google.maps.DirectionsService();
+        const result = await svc.route({
+          origin: route.origin,
+          destination: route.destination,
+          travelMode:
+            travelModeFromType(route.type) ||
+            window.google.maps.TravelMode.WALKING,
+        });
 
-    if (mapRefInternal.current) {
-      mapRefInternal.current.panTo(DEFAULT_CENTER);
-      mapRefInternal.current.setZoom(13);
-    }
-  }, []);
+        directionsCache.current[route.id] = result;
+        setPreviewDirections(result);
 
-  // cleanup debounce timer on unmount
-  useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
+        if (mapRefInternal.current && result?.routes?.[0]?.bounds) {
+          mapRefInternal.current.fitBounds(result.routes[0].bounds, 40);
+        }
+      } catch (err) {
+        console.warn("View directions failed:", err);
+        setPreviewDirections(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [selectedRouteId]
+  );
 
-  const openCompleted = (id) => navigate(`/app/completed/${id}`);
-
-  const copyCompletedLink = (id) => {
-    const link = `${window.location.origin}/app/completed/${id}`;
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(link)
-        .then(() => window.alert("Link copied"))
-        .catch(() => window.alert("Copy failed"));
+  const handleShare = async (route) => {
+    const shareUrl = `${window.location.origin}/app/completed/${route.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: route.title, url: shareUrl });
+      } catch (err) {}
     } else {
-      window.prompt("Copy this link:", link);
+      navigator.clipboard.writeText(shareUrl);
+      window.alert("Link copied to clipboard!");
     }
   };
 
-  // Filters: Handles both Transport Mode and Search, then sorts the result
-  const filteredRoutes = sortPublicRoutes(
-    publicRoutes.filter((r) => {
-      const matchesFilter = activeFilter === "All" || r.type === activeFilter;
+  const handleVote = useCallback(
+    async (routeId, intendedVote) => {
+      const existingRoute = publicRoutes.find((r) => r.id === routeId);
+      if (!existingRoute) return;
 
+      const currentVote = existingRoute.votes?.userVote || 0;
+      const voteToSend = currentVote === intendedVote ? 0 : intendedVote;
+
+      setVoteLoadingIds((prev) => ({ ...prev, [routeId]: true }));
+
+      // optimistic update
+      setPublicRoutes((prev) =>
+        prev.map((r) => {
+          if (r.id !== routeId) return r;
+
+          const oldVote = r.votes?.userVote || 0;
+          let nextScore = r.votes?.score || 0;
+
+          if (oldVote === 1) nextScore -= 1;
+          if (oldVote === -1) nextScore += 1;
+
+          if (voteToSend === 1) nextScore += 1;
+          if (voteToSend === -1) nextScore -= 1;
+
+          return {
+            ...r,
+            votes: {
+              ...(r.votes || {}),
+              score: nextScore,
+              userVote: voteToSend,
+            },
+          };
+        })
+      );
+
+      try {
+        const updatedRoute = await voteOnRoute(routeId, voteToSend);
+        setPublicRoutes((prev) =>
+          prev.map((r) => (r.id === routeId ? updatedRoute : r))
+        );
+      } catch (err) {
+        console.error("Vote failed:", err);
+        setPublicRoutes((prev) =>
+          prev.map((r) => (r.id === routeId ? existingRoute : r))
+        );
+        window.alert(err.message || "Could not save vote.");
+      } finally {
+        setVoteLoadingIds((prev) => ({ ...prev, [routeId]: false }));
+      }
+    },
+    [publicRoutes]
+  );
+
+  const processedRoutes = useMemo(() => {
+    let results = publicRoutes.filter((r) => {
+      const matchesFilter = activeFilter === "All" || r.type === activeFilter;
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch =
         (r.title || "").toLowerCase().includes(searchLower) ||
         (r.origin || "").toLowerCase().includes(searchLower) ||
-        (r.destination || "").toLowerCase().includes(searchLower);
+        (r.destination || "").toLowerCase().includes(searchLower) ||
+        (r.authorUsername || "").toLowerCase().includes(searchLower) ||
+        (r.authorName || "").toLowerCase().includes(searchLower);
 
       return matchesFilter && matchesSearch;
-    }),
-    sortBy === "newest" ? "newest" : "highestRated"
-  );
+    });
+
+    results.sort((a, b) => {
+      const voteDiff = (b.votes?.score || 0) - (a.votes?.score || 0);
+      if (voteDiff !== 0) return voteDiff;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+
+    return results;
+  }, [publicRoutes, activeFilter, searchQuery]);
 
   return (
     <div className="explore-page">
@@ -252,7 +262,7 @@ export default function Explore() {
       <div className="explore-search">
         <input
           type="text"
-          placeholder="Search by title, origin, or destination..."
+          placeholder="Search by title, origin, destination, or author..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -275,7 +285,9 @@ export default function Explore() {
               key={opt.key}
               title={opt.label}
               onClick={() => setActiveFilter(opt.key)}
-              className={`filter-btn ${activeFilter === opt.key ? "selected" : ""}`}
+              className={`filter-btn ${
+                activeFilter === opt.key ? "selected" : ""
+              }`}
             >
               {opt.key}
             </button>
@@ -284,7 +296,14 @@ export default function Explore() {
       </div>
 
       <section style={{ marginBottom: 18 }}>
-        <div className="map-card" style={{ position: "relative" }}>
+        <div
+          className="map-card"
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: "8px",
+          }}
+        >
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             center={DEFAULT_CENTER}
@@ -295,186 +314,269 @@ export default function Explore() {
               <DirectionsRenderer
                 directions={previewDirections}
                 options={{
-                  suppressMarkers: false,
                   polylineOptions: {
                     strokeColor: "#0b63d6",
                     strokeWeight: 5,
-                    strokeOpacity: 0.85,
                   },
                 }}
               />
             )}
           </GoogleMap>
 
+          {selectedRouteId && !previewLoading && (
+            <button
+              onClick={() => {
+                setSelectedRouteId(null);
+                setPreviewDirections(null);
+              }}
+              style={{
+                position: "absolute",
+                top: "15px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 10,
+                padding: "10px 20px",
+                borderRadius: "30px",
+                border: "2px solid white",
+                background: "#ff4d4d",
+                color: "white",
+                fontWeight: "bold",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.4)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = "#e60000";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = "#ff4d4d";
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>✕</span> Clear Map View
+            </button>
+          )}
+
           {previewLoading && (
             <div
               style={{
                 position: "absolute",
-                top: 10,
+                top: 15,
                 left: "50%",
                 transform: "translateX(-50%)",
-                background: "rgba(0,0,0,0.65)",
+                background: "rgba(0,0,0,0.8)",
                 color: "#fff",
-                padding: "5px 14px",
-                borderRadius: 20,
-                fontSize: 13,
-                pointerEvents: "none",
+                padding: "10px 20px",
+                borderRadius: "30px",
                 zIndex: 10,
+                fontWeight: "500",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
               }}
             >
-              Loading preview…
+              Loading Route...
             </div>
           )}
-
-          {previewRoute && !previewLoading && previewDirections && (
-            <div
-              style={{
-                position: "absolute",
-                top: 10,
-                left: "50%",
-                transform: "translateX(-50%)",
-                background: "rgba(11, 99, 214, 0.88)",
-                color: "#fff",
-                padding: "5px 14px",
-                borderRadius: 20,
-                fontSize: 13,
-                pointerEvents: "none",
-                zIndex: 10,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Previewing: {previewRoute.title || `${previewRoute.origin} → ${previewRoute.destination}`}
-            </div>
-          )}
-        </div>
-
-        <div className="map-actions">
-          <button
-            onClick={() => {
-              if (mapRefInternal.current) {
-                mapRefInternal.current.panTo(DEFAULT_CENTER);
-                mapRefInternal.current.setZoom(13);
-              }
-            }}
-          >
-            Recenter
-          </button>
-
-          <button onClick={loadPublicRoutes} disabled={loadingPublic}>
-            {loadingPublic ? "Refreshing…" : "Refresh public list"}
-          </button>
         </div>
       </section>
 
       <section>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-            marginBottom: 12,
-          }}
-        >
-          <h2 style={{ marginBottom: 0 }}>
-            {activeFilter === "All" ? "Public Trails" : `${activeFilter} Trails`}
-            {searchQuery && ` matching "${searchQuery}"`}
-          </h2>
-
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 14,
-              color: "var(--muted)",
-            }}
-          >
-            Sort by:
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(0,0,0,0.15)",
-                background: "#fff",
-              }}
-            >
-              <option value="highestRated">Highest rated</option>
-              <option value="newest">Newest</option>
-            </select>
-          </label>
-        </div>
+        <h2 style={{ marginBottom: 12 }}>
+          {getSectionHeader()}
+          {searchQuery && ` matching "${searchQuery}"`}
+        </h2>
 
         {loadingPublic ? (
-          <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
+          <div style={{ color: "var(--muted)" }}>Loading trails…</div>
         ) : fetchError ? (
           <div className="empty-box" style={{ color: "crimson" }}>
             {fetchError}
           </div>
-        ) : filteredRoutes.length === 0 ? (
-          <div className="empty-box">
-            No public trails found matching your search or category.
-          </div>
+        ) : processedRoutes.length === 0 ? (
+          <div className="empty-box">No trails found in this category.</div>
         ) : (
           <div className="routes-grid">
-            {filteredRoutes.map((r) => (
-              <div
-                key={r.id}
-                className={`route-card${
-                  previewRoute?.id === r.id ? " previewing" : ""
-                }`}
-                onMouseEnter={() => handleCardMouseEnter(r)}
-                onMouseLeave={handleCardMouseLeave}
-              >
-                <div className="route-row">
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 20 }}>{r.type || "👣"}</span>
-                      <strong style={{ fontSize: 16 }}>
-                        {r.title || `${r.origin} → ${r.destination}`}
-                      </strong>
+            {processedRoutes.map((r) => {
+              const userVote = r.votes?.userVote || 0;
+              const voteScore = r.votes?.score || 0;
+              const voteBusy = !!voteLoadingIds[r.id];
+              const authorDisplay = r.authorUsername
+                ? `@${r.authorUsername}`
+                : (r.authorName || "Unknown user");
+
+              return (
+                <div
+                  key={r.id}
+                  className={`route-card ${
+                    selectedRouteId === r.id ? "previewing" : ""
+                  }`}
+                  style={{
+                    borderLeft:
+                      selectedRouteId === r.id ? "5px solid #0b63d6" : "none",
+                    display: "flex",
+                    gap: 14,
+                    alignItems: "stretch",
+                  }}
+                >
+                  <div
+                    style={{
+                      minWidth: 54,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRight: "1px solid #eee",
+                      paddingRight: 12,
+                    }}
+                  >
+                    <button
+                      onClick={() => handleVote(r.id, 1)}
+                      disabled={voteBusy}
+                      title="Upvote"
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        fontSize: "22px",
+                        cursor: voteBusy ? "not-allowed" : "pointer",
+                        color: userVote === 1 ? "#ff6a00" : "#888",
+                        lineHeight: 1,
+                        opacity: voteBusy ? 0.6 : 1,
+                      }}
+                    >
+                      ▲
+                    </button>
+
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "16px",
+                        margin: "4px 0",
+                        minWidth: "24px",
+                        textAlign: "center",
+                      }}
+                    >
+                      {voteScore}
                     </div>
 
-                    <div className="route-meta">
-                      {r.origin} → {r.destination}
-                      <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
-                      <span style={{ marginLeft: 8 }}>
-                        • ETA: {r.duration || "—"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="route-actions">
-                    <button onClick={() => openCompleted(r.id)}>View</button>
-                    <button onClick={() => copyCompletedLink(r.id)}>
-                      Copy link
+                    <button
+                      onClick={() => handleVote(r.id, -1)}
+                      disabled={voteBusy}
+                      title="Downvote"
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        fontSize: "22px",
+                        cursor: voteBusy ? "not-allowed" : "pointer",
+                        color: userVote === -1 ? "#7193ff" : "#888",
+                        lineHeight: 1,
+                        opacity: voteBusy ? 0.6 : 1,
+                      }}
+                    >
+                      ▼
                     </button>
                   </div>
-                </div>
 
-                {r.review && (
-                  <div className="route-review">
-                    <div>
-                      <strong>Rating:</strong> {r.review.stars}/5
-                    </div>
-                    {r.review.comment && (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="route-row">
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <span style={{ fontSize: 20 }}>{r.type}</span>
+                          <strong style={{ fontSize: 16 }}>
+                            {r.title || "Untitled Route"}
+                          </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: "0.9rem",
+                            color: "var(--muted)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Posted by {authorDisplay}
+                        </div>
+
+                        <div className="route-meta">
+                          {r.origin} → {r.destination}
+                          <span style={{ marginLeft: 8 }}>• {r.distance}</span>
+                        </div>
+                      </div>
+
                       <div
+                        className="route-actions"
+                        style={{ display: "flex", gap: "8px" }}
+                      >
+                        <button
+                          onClick={() => handleViewOnMap(r)}
+                          style={{
+                            background:
+                              selectedRouteId === r.id ? "#0b63d6" : "",
+                            color:
+                              selectedRouteId === r.id ? "white" : "",
+                            fontWeight:
+                              selectedRouteId === r.id ? "bold" : "normal",
+                          }}
+                        >
+                          {selectedRouteId === r.id ? "Viewing" : "View"}
+                        </button>
+
+                        <button
+                          onClick={() => handleShare(r)}
+                          title="Share Route"
+                        >
+                          Share ↗
+                        </button>
+                      </div>
+                    </div>
+
+                    {r.review && (
+                      <div
+                        className="route-review"
                         style={{
-                          marginTop: 4,
-                          fontStyle: "italic",
-                          color: "var(--muted)",
+                          marginTop: 10,
+                          borderTop: "1px solid #eee",
+                          paddingTop: 8,
                         }}
                       >
-                        "{r.review.comment}"
+                        <div style={{ color: "#f39c12", fontWeight: "bold" }}>
+                          {"★".repeat(r.review.stars)}
+                          {"☆".repeat(5 - r.review.stars)}
+                          <span
+                            style={{
+                              color: "var(--muted)",
+                              marginLeft: 6,
+                              fontWeight: "normal",
+                            }}
+                          >
+                            ({r.review.stars}/5)
+                          </span>
+                        </div>
+
+                        {r.review.comment && (
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontStyle: "italic",
+                              fontSize: "0.9rem",
+                            }}
+                          >
+                            "{r.review.comment}"
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

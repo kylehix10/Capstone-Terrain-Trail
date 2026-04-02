@@ -26,10 +26,9 @@ app.use(cors({
   maxAge: 86400,
 }));
 
-
 app.use(express.json());
 
-const cache = new NodeCache({stdTTL: 60, checkperiod: 120});
+const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
 app.get("/", (req, res) => {
   res.send("API is running");
@@ -42,8 +41,14 @@ app.get("/health", (req, res) => {
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true },
-    username: { type: String, trim: true, unique: true, sparse: true},
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    username: { type: String, trim: true, unique: true, sparse: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     passwordHash: { type: String, required: true },
   },
   { timestamps: true }
@@ -52,32 +57,47 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 
 /**
- * 
+ *
  * Route schema - mirrors the shape of the frontend writes to localStroage
  * `clientId` preserves the original "r_<timestamp>" so it can be match records during a localStorage -> server migration if needed
  */
 const routeSchema = new mongoose.Schema(
   {
     clientId: { type: String, default: null },
-    owner: {  type: mongoose.Schema.Types.ObjectId, ref: "User", index: true  },
-    title: {  type: String, trim: true, default: "" },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    title: { type: String, trim: true, default: "" },
     origin: { type: String, trim: true, default: "" },
-    destination: {  type: String, trim: true, default: "" },
+    destination: { type: String, trim: true, default: "" },
     distance: { type: String, default: "" },
     duration: { type: String, default: "" },
     type: { type: String, default: "👣" },
     tags: { type: [String], default: [] },
-    public: {type: Boolean, default: false  },
+    public: { type: Boolean, default: false },
     review: {
-      stars: {  type: Number, min: 0, max: 5, default: 0  },
-      terrain: {  type: Number, min: 0, max: 10, default: 5 },
+      stars: { type: Number, min: 0, max: 5, default: 0 },
+      terrain: { type: Number, min: 0, max: 10, default: 5 },
       comment: { type: String, default: "" },
-      updatedAt: {  type: Date },
+      updatedAt: { type: Date },
+    },
+    votes: {
+      score: { type: Number, default: 0 },
+      upvoters: {
+        type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        default: [],
+      },
+      downvoters: {
+        type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        default: [],
+      },
     },
     // GPS-tracked polyline points
-    path: { type: [{  lat: Number, lng: Number  }], default: [] },
-    // Directions API gemomtry (used by explore hover preview)
-    encodedPolyline:  { type: String, default: null },
+    path: { type: [{ lat: Number, lng: Number }], default: [] },
+    // Directions API geometry (used by explore hover preview)
+    encodedPolyline: { type: String, default: null },
     bounds: {
       north: Number,
       east: Number,
@@ -86,20 +106,20 @@ const routeSchema = new mongoose.Schema(
     },
     hazards: {
       type: [{
-        lat: { type: Number},
-        lng:{ type: Number },
+        lat: { type: Number },
+        lng: { type: Number },
         type: { type: String },
         createdAt: { type: String },
       }],
       default: [],
     },
   },
-  { timestamps: true  }
+  { timestamps: true }
 );
 
 const Route = mongoose.models.Route || mongoose.model("Route", routeSchema);
 
-/*  Auth middleware for settings routes */
+/* Auth middleware for settings routes */
 
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || "";
@@ -108,7 +128,7 @@ function requireAuth(req, res, next) {
     : null;
 
   if (!token) {
-    return res.status(401).json({message: "Missing token" });
+    return res.status(401).json({ message: "Missing token" });
   }
 
   try {
@@ -118,13 +138,10 @@ function requireAuth(req, res, next) {
     );
     req.userId = payload.sub;
     next();
-
-  }
-  catch (err) {
+  } catch (err) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
-
 
 /* ===== Auth routes ===== */
 app.post("/api/signup", async (req, res) => {
@@ -132,20 +149,41 @@ app.post("/api/signup", async (req, res) => {
     const { name, username, email, password } = req.body || {};
 
     const nameNorm = typeof name === "string" ? name.trim() : "";
-    const usernameNorm = typeof username === "string" ? username.trim() : "";
-    const emailNorm = typeof email === "string" ? email.trim().toLowerCase() : "";
-    const passwordNorm = typeof password === 'string' ? password : "";
-    if (!emailNorm || !passwordNorm) return res.status(400).json({ message: "Email and password required" });
-    if (passwordNorm.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
-    if (!usernameNorm) return res.status(400).json({ message: "Username is required"});
+    const usernameNorm = typeof username === "string"
+      ? username.trim()
+      : "";
+    const emailNorm = typeof email === "string"
+      ? email.trim().toLowerCase()
+      : "";
+    const passwordNorm = typeof password === "string" ? password : "";
+
+    if (!emailNorm || !passwordNorm) {
+      return res.status(400).json({
+        message: "Email and password required",
+      });
+    }
+    if (passwordNorm.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+    if (!usernameNorm) {
+      return res.status(400).json({ message: "Username is required" });
+    }
 
     // Check for unique username and email
-    const existingUsername = await User.findOne({ username: usernameNorm }).select("_id");
+    const existingUsername = await User.findOne({
+      username: usernameNorm,
+    }).select("_id");
+
     if (existingUsername) {
       return res.status(409).json({ message: "Username already in use" });
     }
 
-    const existingEmail = await User.findOne({ email: emailNorm }).select("_id");
+    const existingEmail = await User.findOne({
+      email: emailNorm,
+    }).select("_id");
+
     if (existingEmail) {
       return res.status(409).json({ message: "Email already in use" });
     }
@@ -158,9 +196,12 @@ app.post("/api/signup", async (req, res) => {
       email: emailNorm,
       passwordHash,
     });
+
     return res.status(201).json({ message: "User created" });
   } catch (err) {
-    if (err?.code === 11000) return res.status(409).json({ message: "Duplicate field" });
+    if (err?.code === 11000) {
+      return res.status(409).json({ message: "Duplicate field" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -168,18 +209,35 @@ app.post("/api/signup", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password required",
+      });
+    }
 
     const emailNorm = String(email).trim().toLowerCase();
     const passwordNorm = String(password);
 
     const user = await User.findOne({ email: emailNorm });
-    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
 
     const ok = await bcrypt.compare(passwordNorm, user.passwordHash);
-    if (!ok) return res.status(401).json({ message: "Invalid email or password" });
+    if (!ok) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
 
-    const token = jwt.sign({ sub: user._id, email: user.email }, process.env.JWT_SECRET || "dev", { expiresIn: "7d" });
+    const token = jwt.sign(
+      { sub: user._id, email: user.email },
+      process.env.JWT_SECRET || "dev",
+      { expiresIn: "7d" }
+    );
 
     return res.json({ message: "Logged in", token });
   } catch (e) {
@@ -187,57 +245,67 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-
 /* ==== Settings/ Account routes ==== */
 
 /**
- * GET /api/account 
+ * GET /api/account
  * populate fields with current user data
  */
 app.get("/api/account", requireAuth, async (req, res) => {
   try {
     const key = `account:${req.userId}`;
     const cached = cache.get(key);
+
     if (cached) {
-      return res.json({ user: cached, source: "cache"});
+      return res.json({ user: cached, source: "cache" });
     }
+
     const user = await User.findById(req.userId)
       .select("name username email")
       .lean();
 
     if (!user) {
-      return res.status(404).json({message: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
+
     cache.set(key, user);
     res.json({ user, source: "db" });
-  }
-  catch (err) {
-    res.status(500).json({message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 });
+
 /**
  * PUT /api/account
- * Body can cantain: name, username,  email, currentPassword, newPassword
+ * Body can contain: name, username, email, currentPassword, newPassword
  */
 app.put("/api/account", requireAuth, async (req, res) => {
   try {
-    const { name, username, email, currentPassword, newPassword } = req.body || {};
+    const {
+      name,
+      username,
+      email,
+      currentPassword,
+      newPassword,
+    } = req.body || {};
 
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const trimmedEmail =
-      typeof email === "string" ? email.trim().toLowerCase() : undefined;
+    const trimmedEmail = typeof email === "string"
+      ? email.trim().toLowerCase()
+      : undefined;
 
     const isEmailChanging =
       typeof trimmedEmail === "string" && trimmedEmail !== user.email;
 
     const isPasswordChanging = !!newPassword;
 
-    const trimmedUsername =
-      typeof username === "string" ? username.trim() : undefined;
+    const trimmedUsername = typeof username === "string"
+      ? username.trim()
+      : undefined;
 
     const isUsernameChanging =
       typeof trimmedUsername === "string" &&
@@ -253,9 +321,14 @@ app.put("/api/account", requireAuth, async (req, res) => {
 
     // Verify password if needed
     if (isEmailChanging || isPasswordChanging) {
-      const ok = await bcrypt.compare(currentPassword || "", user.passwordHash);
+      const ok = await bcrypt.compare(
+        currentPassword || "",
+        user.passwordHash
+      );
       if (!ok) {
-        return res.status(400).json({ message: "Incorrect current password" });
+        return res.status(400).json({
+          message: "Incorrect current password",
+        });
       }
     }
 
@@ -269,7 +342,8 @@ app.put("/api/account", requireAuth, async (req, res) => {
       if (!/^[a-zA-Z0-9][a-zA-Z0-9_]{2,19}$/.test(trimmedUsername)) {
         return res.status(400).json({
           message:
-            "Username must be 3–20 characters and contain only letters, numbers, and underscores.",
+            "Username must be 3–20 characters and contain only letters, " +
+            "numbers, and underscores.",
         });
       }
 
@@ -307,11 +381,17 @@ app.put("/api/account", requireAuth, async (req, res) => {
 
     res.json({
       message: "Changes saved",
-      user: { name: user.name, username: user.username, email: user.email },
+      user: {
+        name: user.name,
+        username: user.username,
+        email: user.email,
+      },
     });
   } catch (err) {
     if (err?.code === 11000) {
-      return res.status(409).json({ message: "Email or username already in use" });
+      return res.status(409).json({
+        message: "Email or username already in use",
+      });
     }
     res.status(500).json({ message: "Server error" });
   }
@@ -322,12 +402,14 @@ app.put("/api/account", requireAuth, async (req, res) => {
  * Permanently deletes the authenticated user's account.
  * This frees email/username for reuse because the document is removed.
  */
-app.delete("/api/account", requireAuth, async(req, res) => {
+app.delete("/api/account", requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("_id");
-    if (!user) return res.status(404).json({ message: "User not found"});
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    await Route.deleteMany({ owner: req.userId }); // cascade-delete user's routes
+    await Route.deleteMany({ owner: req.userId });
     await User.deleteOne({ _id: req.userId });
 
     // clear cached account data for this user
@@ -342,30 +424,38 @@ app.delete("/api/account", requireAuth, async(req, res) => {
 // ROUTES API
 
 /**
- * GET /api/routes 
- * All routes owned by the authenticed user, newest-first
+ * GET /api/routes
+ * All routes owned by the authenticated user, newest-first
  */
 app.get("/api/routes", requireAuth, async (req, res) => {
   try {
-    const routes = await Route.find({ owner: req.userId }).sort({ createdAt: -1 }).lean();
-    
-    res.json({ routes: routes.map(normalizeRoute) });
-  }
-  catch (err) {
+    const routes = await Route.find({ owner: req.userId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      routes: routes.map((r) => normalizeRoute(r, req.userId)),
+    });
+  } catch (err) {
     console.error("GET /api/routes error", err);
-    res.status(500).json({  message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 /**
- *  GET /api/routes/public
- *  All public  routes - mirrors what Explore reads
+ * GET /api/routes/public
+ * All public routes - mirrors what Explore reads
  */
 app.get("/api/routes/public", requireAuth, async (req, res) => {
   try {
-    const routes = await Route.find({ public: true }).sort({ createdAt: -1 }).lean();
- 
-    res.json({ routes: routes.map(normalizeRoute) });
+    const routes = await Route.find({ public: true })
+      .populate("owner", "name username")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      routes: routes.map((r) => normalizeRoute(r, req.userId)),
+    });
   } catch (err) {
     console.error("GET /api/routes/public error", err);
     res.status(500).json({ message: "Server error" });
@@ -373,25 +463,31 @@ app.get("/api/routes/public", requireAuth, async (req, res) => {
 });
 
 /**
- *  GET /api/routes/:id
- *  Single route by MongoDB _id.
- *  see a public route (e.g. via a shared link inside the app).
+ * GET /api/routes/:id
+ * Single route by MongoDB _id.
+ * Allows the owner to view their own route and authenticated users to
+ * see a public route (e.g. via a shared link inside the app).
  */
 app.get("/api/routes/:id", requireAuth, async (req, res) => {
   try {
-    const route = await Route.findById(req.params.id).lean();
-    if (!route) return res.status(404).json({ message: "Route not found "});
+    const route = await Route.findById(req.params.id)
+      .populate("owner", "name username")
+      .lean();
 
-    const isOwner = req.userId && String(route.owner) === String(req.userId);
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
+
+    const isOwner = req.userId &&
+      String(route.owner?._id || route.owner) === String(req.userId);
     const isPublic = route.public;
 
     if (!isOwner && !isPublic) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    
-    res.json({ route: normalizeRoute(route) });
-  }
-  catch (err) {
+
+    res.json({ route: normalizeRoute(route, req.userId) });
+  } catch (err) {
     console.error("GET /api/routes/:id error", err);
     res.status(500).json({ message: "Server error" });
   }
@@ -400,10 +496,10 @@ app.get("/api/routes/:id", requireAuth, async (req, res) => {
 /**
  * POST /api/routes
  * Create one route, or bulk-import many.
- * 
+ *
  * Single: body = { title, origin, destination, ... }
  * Bulk: body = { routes: [ { ... }, { ... } ] }
- * 
+ *
  * Bulk import is intended for the one-time migration of localStorage data.
  * The frontend can call it after first login to sync existing local routes.
  */
@@ -415,18 +511,23 @@ app.post("/api/routes", requireAuth, async (req, res) => {
     if (Array.isArray(body.routes)) {
       const docs = body.routes.map((r) => buildRouteDoc(r, req.userId));
       const inserted = await Route.insertMany(docs, { ordered: false });
+
       return res.status(201).json({
         message: `${inserted.length} routes imported`,
-        routes: inserted.map((d) => normalizeRoute(d.toObject())),
+        routes: inserted.map((d) =>
+          normalizeRoute(d.toObject(), req.userId)
+        ),
       });
     }
 
     // Single route
     const doc = buildRouteDoc(body, req.userId);
     const created = await Route.create(doc);
-    res.status(201).json({ route: normalizeRoute(created.toObject()) });
-  }
-  catch (err) {
+
+    res.status(201).json({
+      route: normalizeRoute(created.toObject(), req.userId),
+    });
+  } catch (err) {
     console.error("POST /api/routes error", err);
     res.status(500).json({ message: "Server error" });
   }
@@ -434,24 +535,33 @@ app.post("/api/routes", requireAuth, async (req, res) => {
 
 /**
  * PUT /api/routes/:id
- * Full update - must be the owner/
+ * Full update - must be the owner
  */
-app.put("/api/routes/:id", requireAuth, async(req, res) => {
+app.put("/api/routes/:id", requireAuth, async (req, res) => {
   try {
     const route = await Route.findById(req.params.id);
-    if (!route) return res.status(404).json({ message: "Route not found" });
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
 
     if (String(route.owner) !== String(req.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
     const update = buildRouteDoc(req.body || {}, req.userId);
+
+    // Preserve existing votes during normal route edits
+    delete update.votes;
+
     Object.assign(route, update);
     await route.save();
 
-    res.json({ route: normalizeRoute(route.toObject()) });
-  }
-  catch (err) {
+    const refreshed = await Route.findById(route._id)
+      .populate("owner", "name username")
+      .lean();
+
+    res.json({ route: normalizeRoute(refreshed, req.userId) });
+  } catch (err) {
     console.error("PUT /api/routes/:id error", err);
     res.status(500).json({ message: "Server error" });
   }
@@ -461,20 +571,103 @@ app.put("/api/routes/:id", requireAuth, async(req, res) => {
  * DELETE /api/routes/:id
  * Must be the owner
  */
-app.delete("/api/routes/:id", requireAuth, async(req, res) => {
+app.delete("/api/routes/:id", requireAuth, async (req, res) => {
   try {
     const route = await Route.findById(req.params.id);
-    if (!route) return res.status(404).json({ message: "Route not found" });
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
 
     if (String(route.owner) !== String(req.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
     await Route.deleteOne({ _id: req.params.id });
-    res.json({ message: "Route deleted " });
-  }
-  catch (err) {
+    res.json({ message: "Route deleted" });
+  } catch (err) {
     console.error("DELETE /api/routes/:id error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * POST /api/routes/:id/vote
+ * Vote on a public route
+ * Body: { vote: 1 } for upvote, { vote: -1 } for downvote,
+ *       { vote: 0 } to remove your vote
+ */
+app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
+  try {
+    const { vote } = req.body || {};
+
+    if (![1, -1, 0].includes(vote)) {
+      return res.status(400).json({
+        message: "Vote must be 1, -1, or 0",
+      });
+    }
+
+    const route = await Route.findById(req.params.id)
+      .populate("owner", "name username");
+
+    if (!route) {
+      return res.status(404).json({ message: "Route not found" });
+    }
+
+    if (!route.public) {
+      return res.status(403).json({
+        message: "Voting allowed only on public routes",
+      });
+    }
+
+    const ownerId = String(route.owner?._id || route.owner);
+    if (ownerId === String(req.userId)) {
+      return res.status(403).json({
+        message: "You cannot vote on your own route",
+      });
+    }
+
+    if (!route.votes) {
+      route.votes = { score: 0, upvoters: [], downvoters: [] };
+    }
+
+    const uid = String(req.userId);
+
+    const upvoters = Array.isArray(route.votes.upvoters)
+      ? route.votes.upvoters
+      : [];
+    const downvoters = Array.isArray(route.votes.downvoters)
+      ? route.votes.downvoters
+      : [];
+
+    const alreadyUp = upvoters.some((id) => String(id) === uid);
+    const alreadyDown = downvoters.some((id) => String(id) === uid);
+
+    route.votes.upvoters = upvoters.filter(
+      (id) => String(id) !== uid
+    );
+    route.votes.downvoters = downvoters.filter(
+      (id) => String(id) !== uid
+    );
+
+    if (vote === 1 && !alreadyUp) {
+      route.votes.upvoters.push(req.userId);
+    } else if (vote === -1 && !alreadyDown) {
+      route.votes.downvoters.push(req.userId);
+    }
+
+    route.votes.score =
+      (route.votes.upvoters?.length || 0) -
+      (route.votes.downvoters?.length || 0);
+
+    await route.save();
+
+    const refreshed = await Route.findById(route._id)
+      .populate("owner", "name username")
+      .lean();
+
+    res.json({ route: normalizeRoute(refreshed, req.userId) });
+  } catch (err) {
+    console.error("POST /api/routes/:id/vote error", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -500,40 +693,74 @@ function parseHazards(raw) {
 }
 
 /** Maps a client-side route object -> Mongoose document fields */
-function buildRouteDoc(r, ownedId) {
+function buildRouteDoc(r, ownerId) {
   return {
     clientId: r.id || r.clientId || null,
-    owner: ownedId,
-    title: r.title  || "",
-    origin: r.origin  || "",
-    destination: r.destination  || "",
-    distance: r.distance  || "",
-    duration: r.duration  || "",
-    type: r.type  || "👣",
+    owner: ownerId,
+    title: r.title || "",
+    origin: r.origin || "",
+    destination: r.destination || "",
+    distance: r.distance || "",
+    duration: r.duration || "",
+    type: r.type || "👣",
     tags: Array.isArray(r.tags) ? r.tags : [],
     public: Boolean(r.public),
     review: r.review
       ? {
         stars: Number(r.review.stars) || 0,
-        terrain: r.review.terrain != null ? Number(r.review.terrain) : 5,
+        terrain: r.review.terrain != null
+          ? Number(r.review.terrain)
+          : 5,
         comment: r.review.comment || "",
-        updatedAt: r.review.updatedAt ? new Date(r.review.updatedAt) : new Date(),
+        updatedAt: r.review.updatedAt
+          ? new Date(r.review.updatedAt)
+          : new Date(),
       }
       : undefined,
     path: Array.isArray(r.path) ? r.path : [],
     encodedPolyline: r.encodedPolyline || null,
-    bounds: r.bounds  || undefined,
+    bounds: r.bounds || undefined,
     hazards: parseHazards(r.hazards),
   };
 }
 
 /**
- * Converts a Magoose lean doc -> the shape the frontend expects.
+ * Converts a Mongoose lean doc -> the shape the frontend expects.
  * Renames _id -> id to stay compatible with the localStorage schema.
  */
-function normalizeRoute(doc) {
-  const { _id, __v, ...rest } = doc;
-  return { ...rest, id: String(_id) };
+function normalizeRoute(doc, userId = null) {
+  const { _id, __v, votes, owner, ...rest } = doc;
+
+  let userVote = 0;
+
+  if (userId && votes) {
+    const uid = String(userId);
+
+    const hasUpvoted = Array.isArray(votes.upvoters) &&
+      votes.upvoters.some((id) => String(id) === uid);
+
+    const hasDownvoted = Array.isArray(votes.downvoters) &&
+      votes.downvoters.some((id) => String(id) === uid);
+
+    if (hasUpvoted) userVote = 1;
+    else if (hasDownvoted) userVote = -1;
+  }
+
+  const ownerObj = owner && typeof owner === "object" ? owner : null;
+
+  return {
+    ...rest,
+    id: String(_id),
+    owner: ownerObj?._id ? String(ownerObj._id) : String(owner || ""),
+    authorName: ownerObj?.name || "",
+    authorUsername: ownerObj?.username || "",
+    votes: {
+      score: votes?.score || 0,
+      upvoteCount: votes?.upvoters?.length || 0,
+      downvoteCount: votes?.downvoters?.length || 0,
+      userVote,
+    },
+  };
 }
 
 async function start() {
@@ -544,7 +771,9 @@ async function start() {
       socketTimeoutMS: 10000,
       maxPoolSize: 10,
     });
+
     console.log("DB connected");
+
     const port = process.env.PORT || 4000;
     app.listen(port, () => {
       console.log(`API running on http://localhost:${port}`);
