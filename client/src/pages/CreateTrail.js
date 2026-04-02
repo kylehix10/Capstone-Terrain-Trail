@@ -48,7 +48,6 @@ function haversineDistanceMeters(a, b) {
 // Create an SVG data URL marker using the emoji so it looks crisp on the map.
 // width/height control marker dimensions.
 function getEmojiMarkerIcon(emoji = "👣", size = 40) {
-  // simple circular marker with emoji centered
   const svg = `
     <svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'>
       <defs>
@@ -66,7 +65,6 @@ function getEmojiMarkerIcon(emoji = "👣", size = 40) {
   `;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    // no need to use google.maps.Size explicitly; google will scale data URL image
     scaledSize: undefined,
   };
 }
@@ -77,8 +75,10 @@ function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
 }
 
 function getRouteDurationText(routeType, durationValue, durationText) {
-  if (routeType === "🏃") return calculateCustomDurationFromWalking(durationValue, 2.0);
-  if (routeType === "♿") return calculateCustomDurationFromWalking(durationValue, 0.8);
+  if (routeType === "🏃")
+    return calculateCustomDurationFromWalking(durationValue, 2.0);
+  if (routeType === "♿")
+    return calculateCustomDurationFromWalking(durationValue, 0.8);
   if (routeType === "🛹" || routeType === "🛴") {
     return calculateCustomDurationFromWalking(durationValue, 1.0);
   }
@@ -151,7 +151,9 @@ async function analyzeRoute(route, prefs, routeType) {
   const distanceMeters = leg?.distance?.value ?? Number.MAX_SAFE_INTEGER;
   const stepCount = leg?.steps?.length ?? 0;
 
-  const elevationGainMeters = await estimateElevationGainMeters(route?.overview_path || []);
+  const elevationGainMeters = await estimateElevationGainMeters(
+    route?.overview_path || []
+  );
   const distanceMiles = Math.max(distanceMeters / 1609.344, 0.1);
 
   const sensitivity = getTerrainSensitivity(routeType);
@@ -208,11 +210,10 @@ export default function CreateTrail() {
   // Tracking state
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [trackedPath, setTrackedPath] = useState([]); // [{lat,lng}, ...]
+  const [trackedPath, setTrackedPath] = useState([]);
   const [trackedDistanceMeters, setTrackedDistanceMeters] = useState(0);
 
-  // elapsed handling: baseElapsed stores accumulated ms when paused/stopped; startTsRef stores epoch when running
-  const [elapsedMsDisplay, setElapsedMsDisplay] = useState(0); // used for UI; updated every second
+  const [elapsedMsDisplay, setElapsedMsDisplay] = useState(0);
   const baseElapsedRef = useRef(0);
   const startTsRef = useRef(null);
   const elapsedIntervalRef = useRef(null);
@@ -223,7 +224,6 @@ export default function CreateTrail() {
 
   const { showSnackbar } = useSnackbar();
 
-  // Dark-mode map styling (only when :root.dark is active)
   const isDarkMode = document.documentElement.classList.contains("dark");
   const darkMapStyles = [
     { elementType: "geometry", stylers: [{ color: "#1d1d1d" }] },
@@ -271,29 +271,25 @@ export default function CreateTrail() {
     },
   ];
 
-  // Keep map type in sync with routeType (darkmode-safe)
   useEffect(() => {
     if (!map || !window.google?.maps) return;
-    // If routeType is driving (🚗) use roadmap; otherwise use terrain
     try {
       map.setMapTypeId(
-        routeType === "🚗" ? window.google.maps.MapTypeId.ROADMAP : window.google.maps.MapTypeId.TERRAIN
+        routeType === "🚗"
+          ? window.google.maps.MapTypeId.ROADMAP
+          : window.google.maps.MapTypeId.TERRAIN
       );
     } catch (e) {
-      // google may be undefined briefly; ignore
       console.warn("Failed to set map type:", e);
     }
   }, [map, routeType]);
 
-  // If the user navigates away while tracking, watchPosition and the interval can keep running
   useEffect(() => {
     return () => {
-      // cleanup geolocation watcher
       if (watchIdRef.current != null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
-      // cleanup timer
       if (elapsedIntervalRef.current) {
         clearInterval(elapsedIntervalRef.current);
         elapsedIntervalRef.current = null;
@@ -382,14 +378,7 @@ export default function CreateTrail() {
         routes.map(async (route) => analyzeRoute(route, routePrefs, usedType))
       );
 
-      let sorted = analyzed;
-
-      if (routePrefs.fewerTurns || routePrefs.flatter) {
-        sorted = [...analyzed].sort((a, b) => a.score - b.score);
-      } else {
-        // still prefer a route that is easier for the chosen transport mode
-        sorted = [...analyzed].sort((a, b) => a.score - b.score);
-      }
+      let sorted = analyzed.sort((a, b) => a.score - b.score);
 
       if (requestId !== routeRequestIdRef.current) {
         return null;
@@ -419,7 +408,6 @@ export default function CreateTrail() {
     }
   }
 
-  // Recalculate when route preferences change, if a route already exists
   useEffect(() => {
     const originVal = originInputRef.current?.value?.trim();
     const destVal = destInputRef.current?.value?.trim();
@@ -442,18 +430,16 @@ export default function CreateTrail() {
     );
   }
 
-  // Timer helpers
   function startElapsedTimer() {
     if (elapsedIntervalRef.current) return;
-    // update UI every second
     elapsedIntervalRef.current = setInterval(() => {
       const running = startTsRef.current ? Date.now() - startTsRef.current : 0;
       setElapsedMsDisplay(baseElapsedRef.current + running);
     }, 1000);
-    // also set immediate
     const running = startTsRef.current ? Date.now() - startTsRef.current : 0;
     setElapsedMsDisplay(baseElapsedRef.current + running);
   }
+
   function stopElapsedTimer() {
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
@@ -467,7 +453,6 @@ export default function CreateTrail() {
       return;
     }
 
-    // Reset tracking state so timer and path start fresh
     setTrackedPath([]);
     setTrackedDistanceMeters(0);
     baseElapsedRef.current = 0;
@@ -498,19 +483,16 @@ export default function CreateTrail() {
 
   function pauseTracking() {
     if (!isTracking || isPaused) return;
-    // accumulate elapsed
     if (startTsRef.current) {
       baseElapsedRef.current += Date.now() - startTsRef.current;
       startTsRef.current = null;
     }
     setIsPaused(true);
-    // clear watcher to save battery
     if (watchIdRef.current != null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     stopElapsedTimer();
-    // ensure display shows final base elapsed
     setElapsedMsDisplay(baseElapsedRef.current);
   }
 
@@ -612,60 +594,54 @@ export default function CreateTrail() {
   }
 
   async function setOriginToUserLocation() {
-  if (!navigator.geolocation || !window.google?.maps) {
-    setLocationMessage("Location permission required.");
-    return;
-  }
-
-  setLocationMessage("");
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-
-      const exactPoint = { lat: latitude, lng: longitude };
-
-      // Keep GPS coords for routing
-      setOriginPosition(exactPoint);
-      setMapCenter(exactPoint);
-
-      // Convert coords → readable place
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ location: exactPoint }, (results, status) => {
-        if (status === "OK" && results?.[0]) {
-          if (originInputRef.current) {
-            originInputRef.current.value = results[0].formatted_address;
-          }
-        } else {
-          // fallback if geocoding fails
-          if (originInputRef.current) {
-            originInputRef.current.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-          }
-        }
-      });
-
-      if (accuracy && accuracy > 50) {
-        setLocationMessage(
-          `Location is a little imprecise (${Math.round(accuracy)}m), but using nearest place.`
-        );
-      } else {
-        setLocationMessage("");
-      }
-    },
-    (err) => {
-      setLocationMessage(
-        err?.code === 1
-          ? "Location permission required."
-          : "Could not get your location."
-      );
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
+    if (!navigator.geolocation || !window.google?.maps) {
+      setLocationMessage("Location permission required.");
+      return;
     }
-  );
-}
+
+    setLocationMessage("");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const exactPoint = { lat: latitude, lng: longitude };
+
+        setOriginPosition(exactPoint);
+        setMapCenter(exactPoint);
+
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: exactPoint }, (results, status) => {
+          if (status === "OK" && results?.[0]) {
+            if (originInputRef.current) {
+              originInputRef.current.value = results[0].formatted_address;
+            }
+          } else {
+            if (originInputRef.current) {
+              originInputRef.current.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            }
+          }
+        });
+
+        if (accuracy && accuracy > 50) {
+          setLocationMessage(
+            `Location is a little imprecise (${Math.round(accuracy)}m), but using nearest place.`
+          );
+        } else {
+          setLocationMessage("");
+        }
+      },
+      (err) => {
+        setLocationMessage(
+          err?.code === 1 ? "Location permission required." : "Could not get your location."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }
 
   useEffect(() => {
     if (!window.google?.maps?.places) return;
@@ -700,7 +676,6 @@ export default function CreateTrail() {
 
         if (!destVal) return;
 
-        // Make walking the default route as soon as destination is chosen.
         setRouteType("👣");
 
         if (originVal) {
@@ -777,7 +752,6 @@ export default function CreateTrail() {
     }
   }
 
-  // clear everything including timer, tracked data, UI fields
   function clearRoute() {
     setLocationMessage("");
     setDirectionsResult(null);
@@ -790,7 +764,6 @@ export default function CreateTrail() {
     setOriginPosition(null);
     setIsUSC(false);
 
-    // stop tracking
     if (watchIdRef.current != null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -806,7 +779,6 @@ export default function CreateTrail() {
     setRouteTitle("");
     setHazards([]);
 
-    // recenter map
     map?.panTo(DEFAULT_CENTER);
     map?.setZoom(14);
   }
@@ -818,19 +790,16 @@ export default function CreateTrail() {
     map.setZoom(14);
   }
 
-  // compute elapsed display string from elapsedMsDisplay
   const totalElapsedMs = elapsedMsDisplay;
   const elapsedMinutes = Math.floor(totalElapsedMs / 60000);
   const elapsedSeconds = Math.floor((totalElapsedMs % 60000) / 1000);
   const elapsedDisplay = `${elapsedMinutes}:${String(elapsedSeconds).padStart(2, "0")}`;
 
-  // user marker position (last known GPS or origin)
   const lastPos =
     trackedPath && trackedPath.length > 0
       ? trackedPath[trackedPath.length - 1]
       : originPosition;
 
-  // create icon for current transport emoji
   const userIcon = getEmojiMarkerIcon(routeType, 48);
 
   const selectedRouteItem = routeOptions[selectedRouteIndex] || null;
@@ -848,361 +817,388 @@ export default function CreateTrail() {
       : directionsResult;
 
   return (
-    <div className="create-trail-container" style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <h2 style={{ marginTop: 0 }}>Create Trail</h2>
+  <div className="create-trail-container" style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <h2 style={{ marginTop: 0 }}>Create Trail</h2>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        {/* Origin */}
-        <div className="origin-input-wrapper">
-          <input ref={originInputRef} placeholder="Origin" style={{ padding: 8, minWidth: 240 }} />
-          <button className="use-location-btn" onClick={setOriginToUserLocation}>
-            📍 My location
-          </button>
-          {locationMessage && (
-            <div style={{ marginTop: 6, fontSize: 14, color: "crimson" }}>{locationMessage}</div>
-          )}
-        </div>
-
-        <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
-
-        {/* Transport type toolbar */}
-        <div className="transport-toolbar" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {[
-            { key: "👣", label: "Walking" },
-            { key: "🚲", label: "Biking" },
-            { key: "🚗", label: "Driving" },
-            { key: "🛹", label: "Skateboarding" },
-            { key: "🏃", label: "Running" },
-            { key: "🛴", label: "Scootering" },
-            { key: "♿", label: "Wheelchair" },
-          ].map((opt) => {
-            const selected = routeType === opt.key;
-            return (
-              <button
-                key={opt.key}
-                title={opt.label}
-                onClick={async () => {
-                  setRouteType(opt.key);
-                  const originVal = originInputRef.current?.value?.trim();
-                  const destVal = destInputRef.current?.value?.trim();
-                  if (originVal && destVal) {
-                    try {
-                      await calculateRoute(opt.key);
-                    } catch (e) {}
-                  }
-                }}
-                style={{
-                  fontSize: 18,
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  lineHeight: 1,
-                  border: selected ? "2px solid var(--brand)" : "1px solid var(--border)",
-                  background: selected ? "rgba(115, 0, 10, 0.12)" : "var(--surface)",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                }}
-                aria-pressed={selected}
-              >
-                {opt.key}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Title / USC / Save / Clear */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            placeholder="Route title (optional)"
-            value={routeTitle}
-            onChange={(e) => setRouteTitle(e.target.value)}
-            style={{ padding: 8, minWidth: 260 }}
-          />
-
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input type="checkbox" checked={isUSC} onChange={(e) => setIsUSC(e.target.checked)} />
-            On Campus
-          </label>
-
-          <button onClick={saveRouteToLibrary} disabled={saving}>
-            {saving ? "Saving..." : "Save to Library"}
-          </button>
-
-          <button onClick={clearRoute}>Clear</button>
-        </div>
-      </div>
-
-      {/* Route preferences */}
-      <div style={{ marginBottom: 12, padding: 12, border: "1px solid var(--border)", borderRadius: 12 }}>
-        <strong>Route Preferences:</strong>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={routePrefs.avoidHighways}
-              onChange={(e) =>
-                setRoutePrefs((p) => ({ ...p, avoidHighways: e.target.checked }))
-              }
-            />
-            No highways
-          </label>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={routePrefs.fewerTurns}
-              onChange={(e) =>
-                setRoutePrefs((p) => ({ ...p, fewerTurns: e.target.checked }))
-              }
-            />
-            Fewer turns
-          </label>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={routePrefs.flatter}
-              onChange={(e) =>
-                setRoutePrefs((p) => ({ ...p, flatter: e.target.checked }))
-              }
-            />
-            Flatter route
-          </label>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div style={{ marginBottom: 12 }}>
-        <strong>Distance (route):</strong> {distanceText || "—"} &nbsp;
-        <strong>ETA:</strong> {durationText || "—"} &nbsp;
-        <strong>Terrain:</strong> {selectedTerrainText}
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <strong>Route options:</strong>{" "}
-        {routeOptions.length > 1
-          ? `${routeOptions.length} available`
-          : routeOptions.length === 1
-            ? "1 available"
-            : "—"}
-      </div>
-
-      {/* Route options list */}
-      {routeOptions.length > 0 && (
-        <div style={{ marginBottom: 12, display: "grid", gap: 8 }}>
-          {routeOptions.map((item, i) => {
-            const leg = item.route?.legs?.[0];
-            if (!leg) return null;
-            const isSelected = i === selectedRouteIndex;
-            return (
-              <div
-                key={`${i}-${leg.distance?.value || i}`}
-                onClick={() => selectRoute(i)}
-                style={{
-                  padding: 10,
-                  borderRadius: 10,
-                  border: isSelected ? "2px solid var(--brand)" : "1px solid var(--border)",
-                  background: isSelected ? "rgba(115, 0, 10, 0.08)" : "var(--surface)",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <strong>{isSelected ? "Selected" : `Option ${i + 1}`}</strong>
-                  <span>
-                    {leg.distance?.text || "—"} •{" "}
-                    {getRouteDurationText(
-                      routeType,
-                      leg.duration?.value,
-                      leg.duration?.text || ""
-                    )}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
-                  Terrain: {item.terrainLabel || "—"}{" "}
-                  {typeof item.elevationGainMeters === "number"
-                    ? `• Elev gain ${Math.round(item.elevationGainMeters)} m`
-                    : ""}
-                  {typeof item.turnCount === "number" ? ` • Turns ${item.turnCount}` : ""}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Tracking status */}
-      <div style={{ marginBottom: 12 }}>
-        <strong>Tracking status:</strong>{" "}
-        {isTracking ? (isPaused ? "Paused" : "Active") : "Stopped"} &nbsp;|&nbsp;
-        <strong>Elapsed:</strong> {elapsedDisplay} &nbsp;|&nbsp;
-        <strong>Traveled:</strong>{" "}
-        {trackedDistanceMeters
-          ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`
-          : "—"}
-      </div>
-
-      {/* Map */}
-      <div className="map-container">
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={14}
-          onLoad={setMap}
-          onClick={handleMapClick}
-          onUnmount={() => setMap(null)}
-          options={isDarkMode ? { styles: darkMapStyles } : undefined}
-        >
-          {displayedDirections && (
-            <DirectionsRenderer
-              directions={displayedDirections}
-              options={{
-                suppressMarkers: true,
-                preserveViewport: true,
-              }}
-            />
-          )}
-
-          {originPosition && (
-            <Marker position={originPosition} icon={userIcon} optimized={false} />
-          )}
-
-          {destinationPosition && (
-            <Marker
-              position={destinationPosition}
-              title="Destination"
-              label="B"
-              optimized={false}
-            />
-          )}
-
-          {trackedPath && trackedPath.length > 1 && (
-            <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
-          )}
-          {lastPos && <Marker position={lastPos} icon={userIcon} optimized={false} />}
-
-          {hazards.map((hazard, idx) => {
-            const emojiMap = {
-              pothole: "🕳️",
-              construction: "🚧",
-              car: "🚗",
-              debris: "🪨",
-              accident: "⚠️",
-              flood: "🌊",
-            };
-            return (
-              <Marker
-                key={idx}
-                position={{ lat: hazard.lat, lng: hazard.lng }}
-                icon={getEmojiMarkerIcon(emojiMap[hazard.type] || "⚠️")}
-                title={hazard.type}
-                optimized={false}
-                clickable={true}
-                onClick={(e) => {
-                  e.domEvent.stopPropagation();
-                  deleteHazard(idx);
-                }}
-              />
-            );
-          })}
-        </GoogleMap>
-
-        {/* Hazard control */}
-        <div className="hazard-control">
-          <button
-            className="map-btn hazard-btn"
-            onClick={() => setHazardMenuOpen((v) => !v)}
-            aria-expanded={hazardMenuOpen}
-          >
-            ⚠️ Hazard
-          </button>
-
-          {hazardMenuOpen && (
-            <div className="hazard-menu">
-              {[
-                { type: "accident", label: "⚠️ Accident" },
-                { type: "pothole", label: "🕳️ Pothole" },
-                { type: "construction", label: "🚧 Construction" },
-                { type: "car", label: "🚗 Car on roadside" },
-                { type: "debris", label: "🪨 Road debris" },
-              ].map((h) => (
-                <button
-                  key={h.type}
-                  className="hazard-menu-item"
-                  onClick={() => placeHazardNow(h.type)}
-                >
-                  {h.label}
-                </button>
-              ))}
-              <button
-                className="hazard-menu-item"
-                onClick={() => {
-                  setSelectedHazardType(null);
-                  setHazardMenuOpen(false);
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Floating track controls */}
-        <div className="floating-controls">
-          {!isTracking && (
-            <>
-              <button
-                className="map-btn"
-                onClick={() => {
-                  const originVal = originInputRef.current?.value?.trim();
-                  const destVal = destInputRef.current?.value?.trim();
-                  if (!directionsResult && originVal && destVal) {
-                    calculateRoute().then(beginTracking).catch(beginTracking);
-                  } else {
-                    beginTracking();
-                  }
-                }}
-              >
-                Start
-              </button>
-
-              <button
-                className="map-btn"
-                onClick={() => {
-                  const originVal = originInputRef.current?.value?.trim();
-                  if (!originVal) {
-                    setLocationMessage("Please enter a start location before recording.");
-                    return;
-                  }
-                  setLocationMessage("");
-                  setDirectionsResult(null);
-                  setDistanceText("");
-                  setDurationText("");
-                  setRouteOptions([]);
-                  setSelectedRouteIndex(0);
-                  beginTracking();
-                }}
-              >
-                Record New Route
-              </button>
-            </>
-          )}
-
-          {isTracking && !isPaused && (
-            <button className="map-btn" onClick={pauseTracking}>Pause</button>
-          )}
-          {isTracking && isPaused && (
-            <button className="map-btn" onClick={resumeTracking}>Resume</button>
-          )}
-          {isTracking && (
-            <button className="map-btn" onClick={() => stopTracking({ offerSave: true })}>
-              Stop
-            </button>
-          )}
-        </div>
-
-        <button className="map-btn recenter-btn" onClick={recenterToOrigin}>
-          Recenter
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+      <div className="origin-input-wrapper">
+        <input
+          ref={originInputRef}
+          placeholder="Origin"
+          style={{ padding: 8, minWidth: 240 }}
+        />
+        <button className="use-location-btn" onClick={setOriginToUserLocation}>
+          📍 My location
         </button>
+        {locationMessage && (
+          <div style={{ marginTop: 6, fontSize: 14, color: "crimson" }}>
+            {locationMessage}
+          </div>
+        )}
+      </div>
+
+      <input
+        ref={destInputRef}
+        placeholder="Destination"
+        style={{ padding: 8, minWidth: 240 }}
+      />
+
+      <div className="transport-toolbar" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {[
+          { key: "👣", label: "Walking" },
+          { key: "🚲", label: "Biking" },
+          { key: "🚗", label: "Driving" },
+          { key: "🛹", label: "Skateboarding" },
+          { key: "🏃", label: "Running" },
+          { key: "🛴", label: "Scootering" },
+          { key: "♿", label: "Wheelchair" },
+        ].map((opt) => {
+          const selected = routeType === opt.key;
+          return (
+            <button
+              key={opt.key}
+              title={opt.label}
+              onClick={async () => {
+                setRouteType(opt.key);
+                const originVal = originInputRef.current?.value?.trim();
+                const destVal = destInputRef.current?.value?.trim();
+                if (originVal && destVal) {
+                  try {
+                    await calculateRoute(opt.key);
+                  } catch (e) {}
+                }
+              }}
+              style={{
+                fontSize: 18,
+                padding: "6px 10px",
+                borderRadius: 6,
+                lineHeight: 1,
+                border: selected ? "2px solid var(--brand)" : "1px solid var(--border)",
+                background: selected ? "rgba(115, 0, 10, 0.12)" : "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+              aria-pressed={selected}
+            >
+              {opt.key}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input
+          placeholder="Route title (optional)"
+          value={routeTitle}
+          onChange={(e) => setRouteTitle(e.target.value)}
+          style={{ padding: 8, minWidth: 260 }}
+        />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={isUSC}
+            onChange={(e) => setIsUSC(e.target.checked)}
+          />
+          On Campus
+        </label>
+
+        <button onClick={saveRouteToLibrary} disabled={saving}>
+          {saving ? "Saving..." : "Save to Library"}
+        </button>
+
+        <button onClick={clearRoute}>Clear</button>
       </div>
     </div>
-  );
+
+    <div className="map-layout">
+      <div className="map-section">
+        <div className="map-container">
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={mapCenter}
+            zoom={14}
+            onLoad={setMap}
+            onClick={handleMapClick}
+            onUnmount={() => setMap(null)}
+            options={isDarkMode ? { styles: darkMapStyles } : undefined}
+          >
+            {displayedDirections && (
+              <DirectionsRenderer
+                directions={displayedDirections}
+                options={{
+                  suppressMarkers: true,
+                  preserveViewport: true,
+                }}
+              />
+            )}
+
+            {originPosition && (
+              <Marker position={originPosition} icon={userIcon} optimized={false} />
+            )}
+
+            {destinationPosition && (
+              <Marker
+                position={destinationPosition}
+                title="Destination"
+                label="B"
+                optimized={false}
+              />
+            )}
+
+            {trackedPath && trackedPath.length > 1 && (
+              <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
+            )}
+
+            {lastPos && <Marker position={lastPos} icon={userIcon} optimized={false} />}
+
+            {hazards.map((hazard, idx) => {
+              const emojiMap = {
+                pothole: "🕳️",
+                construction: "🚧",
+                car: "🚗",
+                debris: "🪨",
+                accident: "⚠️",
+                flood: "🌊",
+              };
+              return (
+                <Marker
+                  key={idx}
+                  position={{ lat: hazard.lat, lng: hazard.lng }}
+                  icon={getEmojiMarkerIcon(emojiMap[hazard.type] || "⚠️")}
+                  title={hazard.type}
+                  optimized={false}
+                  clickable={true}
+                  onClick={(e) => {
+                    e.domEvent.stopPropagation();
+                    deleteHazard(idx);
+                  }}
+                />
+              );
+            })}
+          </GoogleMap>
+
+          
+
+          <div className="floating-controls">
+            {!isTracking && (
+              <>
+                <button
+                  className="map-btn"
+                  onClick={() => {
+                    const originVal = originInputRef.current?.value?.trim();
+                    const destVal = destInputRef.current?.value?.trim();
+                    if (!directionsResult && originVal && destVal) {
+                      calculateRoute().then(beginTracking).catch(beginTracking);
+                    } else {
+                      beginTracking();
+                    }
+                  }}
+                >
+                  Start
+                </button>
+
+                <button
+                  className="map-btn"
+                  onClick={() => {
+                    const originVal = originInputRef.current?.value?.trim();
+                    if (!originVal) {
+                      setLocationMessage("Please enter a start location before recording.");
+                      return;
+                    }
+                    setLocationMessage("");
+                    setDirectionsResult(null);
+                    setDistanceText("");
+                    setDurationText("");
+                    setRouteOptions([]);
+                    setSelectedRouteIndex(0);
+                    beginTracking();
+                  }}
+                >
+                  Record New Route
+                </button>
+              </>
+            )}
+
+            {isTracking && !isPaused && (
+              <button className="map-btn" onClick={pauseTracking}>
+                Pause
+              </button>
+            )}
+            {isTracking && isPaused && (
+              <button className="map-btn" onClick={resumeTracking}>
+                Resume
+              </button>
+            )}
+            {isTracking && (
+              <button className="map-btn" onClick={() => stopTracking({ offerSave: true })}>
+                Stop
+              </button>
+            )}
+          </div>
+
+      <div className="map-controls">  
+          <div className="hazard-control">
+            <button
+              className="map-btn hazard-btn"
+              onClick={() => setHazardMenuOpen((v) => !v)}
+              aria-expanded={hazardMenuOpen}
+            >
+              ⚠️ Hazard
+            </button>
+
+            {hazardMenuOpen && (
+              <div className="hazard-menu">
+                {[
+                  { type: "accident", label: "⚠️ Accident" },
+                  { type: "pothole", label: "🕳️ Pothole" },
+                  { type: "construction", label: "🚧 Construction" },
+                  { type: "car", label: "🚗 Car on roadside" },
+                  { type: "debris", label: "🪨 Road debris" },
+                ].map((h) => (
+                  <button
+                    key={h.type}
+                    className="hazard-menu-item"
+                    onClick={() => placeHazardNow(h.type)}
+                  >
+                    {h.label}
+                  </button>
+                ))}
+                <button
+                  className="hazard-menu-item"
+                  onClick={() => {
+                    setSelectedHazardType(null);
+                    setHazardMenuOpen(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button className="map-btn recenter-btn" onClick={recenterToOrigin}>
+            Recenter
+          </button>
+          </div>
+        </div>
+      </div>
+
+      <aside className="map-sidebar">
+
+  {/* DISTANCE / ETA / TERRAIN */}
+  <div className="card">
+    <strong>Distance (route):</strong> {distanceText || "—"} <br />
+    <strong>ETA:</strong> {durationText || "—"} <br />
+    <strong>Terrain:</strong> {selectedTerrainText}
+  </div>
+
+  {/* TRACKING */}
+  <div className="card">
+    <strong>Tracking status:</strong>{" "}
+    {isTracking ? (isPaused ? "Paused" : "Active") : "Stopped"} <br />
+    <strong>Elapsed:</strong> {elapsedDisplay} <br />
+    <strong>Traveled:</strong>{" "}
+    {trackedDistanceMeters
+      ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`
+      : "—"}
+  </div>
+
+  {/* ROUTE OPTIONS (Selections) */}
+  <div className="card">
+    <strong>Selections:</strong>{" "}
+    {routeOptions.length > 1
+      ? `${routeOptions.length} available`
+      : routeOptions.length === 1
+        ? "1 available"
+        : "—"}
+
+    {routeOptions.length > 0 && (
+      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+        {routeOptions.map((item, i) => {
+          const leg = item.route?.legs?.[0];
+          if (!leg) return null;
+          const isSelected = i === selectedRouteIndex;
+
+          return (
+            <div
+              key={`${i}-${leg.distance?.value || i}`}
+              onClick={() => selectRoute(i)}
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                border: isSelected
+                  ? "2px solid var(--brand)"
+                  : "1px solid var(--border)",
+                background: isSelected
+                  ? "rgba(115, 0, 10, 0.08)"
+                  : "var(--surface)",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <strong>{isSelected ? "Selected" : `Option ${i + 1}`}</strong>
+                <span>
+                  {leg.distance?.text || "—"} •{" "}
+                  {getRouteDurationText(
+                    routeType,
+                    leg.duration?.value,
+                    leg.duration?.text || ""
+                  )}
+                </span>
+              </div>
+
+              <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+                Terrain: {item.terrainLabel || "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+
+  {/* ROUTE PREFERENCES */}
+  <div className="card">
+    <strong>Route Preferences:</strong>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+      <label>
+        <input
+          type="checkbox"
+          checked={routePrefs.avoidHighways}
+          onChange={(e) =>
+            setRoutePrefs((p) => ({ ...p, avoidHighways: e.target.checked }))
+          }
+        />{" "}
+        No highways
+      </label>
+
+      <label>
+        <input
+          type="checkbox"
+          checked={routePrefs.fewerTurns}
+          onChange={(e) =>
+            setRoutePrefs((p) => ({ ...p, fewerTurns: e.target.checked }))
+          }
+        />{" "}
+        Fewer turns
+      </label>
+
+      <label>
+        <input
+          type="checkbox"
+          checked={routePrefs.flatter}
+          onChange={(e) =>
+            setRoutePrefs((p) => ({ ...p, flatter: e.target.checked }))
+          }
+        />{" "}
+        Flatter route
+      </label>
+    </div>
+  </div>
+
+</aside>
+    </div>
+  </div>
+);
 }
