@@ -1,6 +1,7 @@
 ﻿/* global google */
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { GoogleMap, DirectionsRenderer, Marker, Polyline } from "@react-google-maps/api";
+import { useSnackbar } from "../components/Snackbar.jsx";
 
 const HAZARD_EMOJI = {
   pothole: "🕳️", construction: "🚧", car: "🚗",
@@ -84,6 +85,7 @@ export default function Library() {
   const [distanceText, setDistanceText] = useState("");
   const [durationText, setDurationText] = useState("");
   const [originPosition, setOriginPosition] = useState(null);
+  const { showSnackbar } = useSnackbar();
 
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [loadingRouteId, setLoadingRouteId] = useState(null);
@@ -262,36 +264,52 @@ export default function Library() {
 }
 
   // ── delete ────────────────────────────────────────────────────────────────
- 
-  async function deleteRoute(routeId) {
-    if (!window.confirm("Delete this saved route?")) return;
- 
-    try {
-      const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
-        method:  "DELETE",
-        headers: authHeaders(),
-      });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
- 
-      setSavedRoutes((prev) => prev.filter((r) => r.id !== routeId));
-      if (editingRouteId  === routeId) setEditingRouteId(null);
- 
-      if (selectedRouteId === routeId) {
-        setSelectedRouteId(null);
-        setDirectionsResult(null);
-        setDistanceText("");
-        setDurationText("");
-        setOriginPosition(null);
-        setMapCenter(DEFAULT_CENTER);
-        setLoadedReview(null);
-        setLoadedHazards([]);
-        setLoadedPath([]);
-      }
-    } catch (err) {
-      console.error("deleteRoute error", err);
-      alert("Failed to delete route. Please try again.");
+ function requestDeleteRoute(routeId) {
+  showSnackbar("Delete this saved route?", "warning", [
+    {
+      label: "Delete",
+      onClick: () => performDeleteRoute(routeId),
+      closeOnClick: true,
+    },
+    {
+      label: "Cancel",
+      onClick: () => {},
+      closeOnClick: true,
+    },
+  ], null);
+}
+
+async function performDeleteRoute(routeId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+    setSavedRoutes((prev) => prev.filter((r) => r.id !== routeId));
+    if (editingRouteId === routeId) setEditingRouteId(null);
+
+    if (selectedRouteId === routeId) {
+      setSelectedRouteId(null);
+      setDirectionsResult(null);
+      setDistanceText("");
+      setDurationText("");
+      setOriginPosition(null);
+      setMapCenter(DEFAULT_CENTER);
+      setLoadedReview(null);
+      setLoadedHazards([]);
+      setLoadedPath([]);
     }
+
+    showSnackbar("Route deleted successfully.", "success");
+  } catch (err) {
+    console.error("deleteRoute error", err);
+    showSnackbar("Failed to delete route. Please try again.", "error");
   }
+}
+
 
   function startEditingRoute(route) {
     setEditingRouteId(route.id);
@@ -324,46 +342,52 @@ export default function Library() {
   }
  
   async function saveEditedRoute(routeId) {
-    const origin      = editForm.origin.trim();
-    const destination = editForm.destination.trim();
- 
-    if (!origin || !destination) {
-      alert("Origin and destination are required.");
-      return;
-    }
- 
-    const updatedFields = {
-      title:       editForm.title.trim() || "Untitled Route",
-      origin,
-      destination,
-      distance:    editForm.distance.trim(),
-      duration:    editForm.duration.trim(),
-      type:        editForm.type.trim(),
-      tags:        editForm.isUSC ? ["USC"] : [],
-    };
- 
-    try {
-      const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
-        method:  "PUT",
-        headers: authHeaders(),
-        body:    JSON.stringify(updatedFields),
-      });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data = await res.json();
- 
-      setSavedRoutes((prev) =>
-        prev.map((r) => (r.id === routeId ? data.route : r))
-      );
-      cancelEditingRoute();
- 
-      if (selectedRouteId === routeId) {
-        await loadRoute(data.route);
-      }
-    } catch (err) {
-      console.error("saveEditedRoute error", err);
-      alert("Failed to save changes. Please try again.");
-    }
+  const origin = editForm.origin.trim();
+  const destination = editForm.destination.trim();
+
+  if (!origin || !destination) {
+    showSnackbar("Origin and destination are required.", "warning");
+    return;
   }
+
+  const updatedFields = {
+    title: editForm.title.trim() || "Untitled Route",
+    origin,
+    destination,
+    distance: editForm.distance.trim(),
+    duration: editForm.duration.trim(),
+    type: editForm.type.trim(),
+    tags: editForm.isUSC ? ["USC"] : [],
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(updatedFields),
+    });
+
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+    
+    const data = await res.json();
+
+    setSavedRoutes((prev) =>
+      prev.map((r) => (r.id === routeId ? data.route : r))
+    );
+
+    cancelEditingRoute();
+    showSnackbar("Route updated successfully!", "success");
+
+    if (selectedRouteId === routeId) {
+      await loadRoute(data.route);
+    }
+
+  } catch (err) {
+    console.error("saveEditedRoute error", err);
+    showSnackbar("Failed to save changes. Please try again.", "error");
+  }
+}
 
   function recenterToOrigin() {
     const target = originPosition || DEFAULT_CENTER;
@@ -674,7 +698,7 @@ export default function Library() {
                         Edit
                       </button>
                       <button
-                        onClick={() => deleteRoute(route.id)}
+                        onClick={() => requestDeleteRoute(route.id)}
                         disabled={loadingRouteId === route.id}
                         style={{ border: "1px solid #c62828", color: "#c62828", background: "#fff" }}
                       >
