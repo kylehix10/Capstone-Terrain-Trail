@@ -6,6 +6,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
+import { useNavigate } from "react-router-dom"; // Added for navigation
 import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
 import "../components/Explore.css";
 
@@ -23,8 +24,8 @@ function travelModeFromType(type) {
   const modeMap = {
     "🚗": "DRIVING",
     "🚲": "BICYCLING",
-    "🛴": "BICYCLING",
-    "🛹": "BICYCLING",
+    "scootering": "BICYCLING",
+    "skateboarding": "BICYCLING",
   };
   return window.google.maps.TravelMode[modeMap[type] || "WALKING"];
 }
@@ -64,6 +65,7 @@ async function voteOnRoute(routeId, vote) {
 }
 
 export default function Explore() {
+  const navigate = useNavigate(); // Hook for navigation
   const mapRefInternal = useRef(null);
   const directionsCache = useRef({});
 
@@ -189,7 +191,6 @@ export default function Explore() {
 
       setVoteLoadingIds((prev) => ({ ...prev, [routeId]: true }));
 
-      // optimistic update
       setPublicRoutes((prev) =>
         prev.map((r) => {
           if (r.id !== routeId) return r;
@@ -403,7 +404,7 @@ export default function Explore() {
               const voteBusy = !!voteLoadingIds[r.id];
               const authorDisplay = r.authorUsername
                 ? `@${r.authorUsername}`
-                : (r.authorName || "Unknown user");
+                : r.authorName || "Unknown user";
 
               return (
                 <div
@@ -488,7 +489,10 @@ export default function Explore() {
                           }}
                         >
                           <span style={{ fontSize: 20 }}>{r.type}</span>
-                          <strong style={{ fontSize: 16 }}>
+                          <strong 
+                            style={{ fontSize: 16, cursor: "pointer" }} // Style added to indicate clickability
+                            onClick={() => navigate(`/app/completed/${r.id}`)} // Navigation added
+                          >
                             {r.title || "Untitled Route"}
                           </strong>
                         </div>
@@ -519,8 +523,7 @@ export default function Explore() {
                           style={{
                             background:
                               selectedRouteId === r.id ? "#0b63d6" : "",
-                            color:
-                              selectedRouteId === r.id ? "white" : "",
+                            color: selectedRouteId === r.id ? "white" : "",
                             fontWeight:
                               selectedRouteId === r.id ? "bold" : "normal",
                           }}
