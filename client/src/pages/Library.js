@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { GoogleMap, DirectionsRenderer, Marker, Polyline } from "@react-google-maps/api";
 import { useSnackbar } from "../components/Snackbar.jsx";
-import "../components/Library.css";
+
 
 const HAZARD_EMOJI = {
   pothole: "🕳️", construction: "🚧", car: "🚗",
@@ -88,6 +88,10 @@ function parseDurationToMinutes(durationText) {
 }
 
 export default function Library() {
+  const [isMobileView, setIsMobileView] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 768;
+  });
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
@@ -161,6 +165,23 @@ export default function Library() {
   useEffect(() => {
     loadRoutes();
   }, [loadRoutes]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const updateIsMobileView = (event) => setIsMobileView(event.matches);
+
+    setIsMobileView(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateIsMobileView);
+      return () => mediaQuery.removeEventListener("change", updateIsMobileView);
+    }
+
+    mediaQuery.addListener(updateIsMobileView);
+    return () => mediaQuery.removeListener(updateIsMobileView);
+  }, []);
  
   const routeTypeOptions = useMemo(
     () => Array.from(new Set(savedRoutes.map((r) => r.type).filter(Boolean))),
@@ -442,9 +463,53 @@ async function performDeleteRoute(routeId) {
     map.setZoom(14);
   }
 
+  const pageStyle = {
+    padding: isMobileView ? "1rem" : "1.5rem",
+    maxWidth: 1200,
+    margin: "0 auto",
+  };
+
+  const contentGridStyle = {
+    display: "grid",
+    gridTemplateColumns: isMobileView ? "1fr" : "1fr 320px",
+    gap: 16,
+    alignItems: "start",
+  };
+
+  const mapContainerDynamicStyle = {
+    ...containerStyle,
+    height: isMobileView ? "320px" : containerStyle.height,
+    borderRadius: isMobileView ? 12 : undefined,
+  };
+
+  const sidebarStyle = {
+    width: "100%",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    borderRadius: 8,
+    padding: 12,
+    maxHeight: isMobileView ? "none" : 600,
+    overflowY: isMobileView ? "visible" : "auto",
+    order: isMobileView ? -1 : 0,
+  };
+
+  const routeActionStyle = {
+    display: "flex",
+    gap: 8,
+    marginTop: 6,
+    flexWrap: isMobileView ? "wrap" : "nowrap",
+  };
+
+  const routeEditActionStyle = {
+    display: "flex",
+    gap: 8,
+    marginTop: 8,
+    flexWrap: isMobileView ? "wrap" : "nowrap",
+  };
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={pageStyle}>
       <h2>Library</h2>
 
       <input
@@ -620,10 +685,10 @@ async function performDeleteRoute(routeId) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
+      <div style={contentGridStyle}>
         <div>
           <GoogleMap
-            mapContainerStyle={containerStyle}
+            mapContainerStyle={mapContainerDynamicStyle}
             center={mapCenter}
             zoom={14}
             onLoad={(m) => {
@@ -815,16 +880,7 @@ async function performDeleteRoute(routeId) {
         </div>
 
         <aside
-          style={{
-            width: "100%",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            color: "var(--text)",
-            borderRadius: 8,
-            padding: 12,
-            maxHeight: 600,
-            overflowY: "auto",
-          }}
+          style={sidebarStyle}
         >
           <h3>
             Saved Routes ({filteredRoutes.length})
@@ -948,7 +1004,7 @@ async function performDeleteRoute(routeId) {
                         at USC
                       </label>
 
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <div style={routeEditActionStyle}>
                         <button onClick={() => saveEditedRoute(route.id)}>Save</button>
                         <button onClick={cancelEditingRoute}>Cancel</button>
                       </div>
@@ -1011,7 +1067,7 @@ async function performDeleteRoute(routeId) {
                         </div>
                       )}
 
-                      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                      <div style={routeActionStyle}>
                         <button
                           onClick={() => loadRoute(route)}
                           disabled={loadingRouteId === route.id}
