@@ -1,32 +1,114 @@
 /* src/pages/CompletedTrail.css */
 
+/* Ensure the page can scroll fully */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.app-shell,
+.app-content {
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* page */
 .completed-trail-container {
-  padding: 20px;
-  max-width: 980px;
+  padding: 24px 24px 64px;
+  max-width: 1240px;
   margin: 0 auto;
 }
 
+.completed-trail-container h1 {
+  margin: 0 0 20px;
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Desktop layout: main content + narrow action panel */
 .completed-trail-top {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+}
+
+.completed-trail-main {
+  min-width: 0;
+}
+
+.completed-trail-sidebar {
+  width: fit-content;
+  min-width: 180px;
+  max-width: none;
+  padding: 16px 18px;
+  align-self: start;
 }
 
 /* sidebar + cards */
-.completed-trail-sidebar {
-  width: 260px;
+.completed-trail-sidebar,
+.completed-card,
+.review-section {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 }
 
 .completed-card {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 12px;
+  margin-top: 16px;
+}
+
+.review-section {
+  margin-top: 24px;
+}
+
+.completed-card h2,
+.review-section h3,
+.completed-trail-sidebar h3 {
+  margin-top: 0;
+}
+
+/* sidebar controls */
+.sidebar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sidebar-actions button {
+  min-width: unset;
+  width: auto;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.completed-trail-sidebar button {
+  width: auto;
+}
+
+/* public toggle row */
+.public-toggle-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.public-toggle-row label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.public-toggle-row .toggle-switch {
+  margin-top: 4px;
 }
 
 /* inputs */
@@ -38,12 +120,23 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.completed-trail-container input:focus,
+.completed-trail-container select:focus,
+.completed-trail-container textarea:focus {
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
 .completed-trail-container label {
   color: var(--text);
+  font-weight: 600;
 }
 
 .completed-trail-container p,
@@ -56,21 +149,34 @@
 /* buttons */
 .completed-trail-container button {
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease, opacity 0.15s ease;
 }
 
 .completed-trail-container button:hover {
-  background: var(--surface-2);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.completed-trail-container button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* delete button */
 .delete-btn {
-  background: rgba(255, 0, 0, 0.12);
-  border: 1px solid rgba(255, 0, 0, 0.25);
+  background: rgba(255, 0, 0, 0.12) !important;
+  border: 1px solid rgba(255, 0, 0, 0.25) !important;
+}
+
+.delete-btn:hover {
+  background: rgba(255, 0, 0, 0.18) !important;
 }
 
 /* stars */
@@ -78,6 +184,12 @@
   border: none !important;
   background: transparent !important;
   cursor: pointer;
+  padding: 0 4px !important;
+  transform: none !important;
+}
+
+.star-button:hover {
+  background: transparent !important;
 }
 
 /* small helper text */
@@ -85,34 +197,158 @@
   color: var(--muted);
 }
 
-/* --- Mobile Only: Move buttons below comment section --- */
-@media (max-width: 640px) {
+/* photos section */
+.completed-trail-container img {
+  max-width: 100%;
+}
+
+/* Mobile: stack layout and make both boxes full width */
+@media (max-width: 900px) {
   .completed-trail-top {
-    flex-direction: column !important;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
-  .completed-trail-sidebar,
-  .review-section {
-    width: 100% !important;
-  }
-
-  .review-section {
-    order: 1 !important;
+  .completed-trail-main {
+    order: 1;
   }
 
   .completed-trail-sidebar {
-    order: 2 !important;
-    margin-top: 16px !important;
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 640px) {
+  .completed-trail-container {
+    padding: 14px 12px 36px;
   }
 
-  .completed-trail-sidebar button {
+  .completed-trail-container h1 {
+    font-size: 1.5rem;
+    margin-bottom: 16px;
+  }
+
+  .completed-card,
+  .review-section,
+  .completed-trail-sidebar {
+    border-radius: 16px;
+    padding: 14px;
     width: 100% !important;
-    margin-bottom: 10px !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
   }
 
-  .completed-trail-sidebar button[aria-label="Delete route"] {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
+  .completed-card {
+    margin-top: 12px;
   }
+
+  .review-section {
+    margin-top: 16px;
+  }
+
+  .completed-trail-sidebar {
+    position: static;
+  }
+
+  .sidebar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 12px;
+    width: 100%;
+  }
+
+  .sidebar-actions button {
+    width: auto !important;
+    min-width: unset !important;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+
+  .completed-trail-sidebar > div:last-child button {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+
+  .public-toggle-row {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .completed-trail-container input,
+  .completed-trail-container select,
+  .completed-trail-container textarea {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  .completed-trail-container textarea {
+    min-height: 120px;
+  }
+
+  .completed-trail-main > div:first-child {
+    margin-bottom: 10px;
+  }
+
+  .completed-trail-container .gm-style {
+    border-radius: 16px;
+  }
+
+  /* Final mobile enforcement so sidebar matches the review box */
+  .completed-trail-sidebar {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+}
+
+/* toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  display: inline-block;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #ccc;
+  border-radius: 999px;
+  transition: 0.2s;
+}
+
+.toggle-switch .slider::before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+/* ON state */
+.toggle-switch input:checked + .slider {
+  background-color: #e63946;
+}
+
+.toggle-switch input:checked + .slider::before {
+  transform: translateX(20px);
 }

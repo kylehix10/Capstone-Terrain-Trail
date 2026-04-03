@@ -188,7 +188,7 @@ export default function CompletedTrail() {
       prev.map((p, i) => (i === index ? { ...p, caption } : p))
     );
   }
-  
+
   function removePhoto(index) {
     setPhotos((prev) => {
       const target = prev[index];
@@ -202,7 +202,7 @@ export default function CompletedTrail() {
       photoInputRef.current.value = "";
     }
   }
-  
+
   async function handlePhotoSelection(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -232,7 +232,7 @@ export default function CompletedTrail() {
       }
     }
   }
-  
+
   async function uploadPendingPhotos(photoEntries) {
     const pending = photoEntries.filter((p) => p.file instanceof File);
 
@@ -271,7 +271,8 @@ export default function CompletedTrail() {
         return {
           url: uploaded?.url || "",
           caption: photo.caption || uploaded?.caption || "",
-          uploadedAt: uploaded?.uploadedAt || photo.uploadedAt || new Date().toISOString(),
+          uploadedAt:
+            uploaded?.uploadedAt || photo.uploadedAt || new Date().toISOString(),
         };
       }
       return {
@@ -282,94 +283,97 @@ export default function CompletedTrail() {
     });
   }
 
-async function saveChanges({ overridePublic, redirectToExplore = false } = {}) {
-  if (!route) return;
+  async function saveChanges({
+    overridePublic,
+    redirectToExplore = false,
+  } = {}) {
+    if (!route) return;
 
-  setSaving(true);
-  const publicValue =
-    overridePublic !== undefined ? overridePublic : isPublic;
+    setSaving(true);
+    const publicValue =
+      overridePublic !== undefined ? overridePublic : isPublic;
 
-  try {
-    const uploadedPhotos = await uploadPendingPhotos(photos);
+    try {
+      const uploadedPhotos = await uploadPendingPhotos(photos);
 
-    const payload = {
-      ...route,
-      public: Boolean(publicValue),
-      hazards,
-      photos: uploadedPhotos,
-      review: {
-        stars,
-        terrain,
-        comment,
-        updatedAt: new Date().toISOString(),
-      },
-    };
+      const payload = {
+        ...route,
+        public: Boolean(publicValue),
+        hazards,
+        photos: uploadedPhotos,
+        review: {
+          stars,
+          terrain,
+          comment,
+          updatedAt: new Date().toISOString(),
+        },
+      };
 
-    const res = await fetch(`${API_BASE}/api/routes/${id}`, {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    });
+      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.message || `Server error: ${res.status}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      setRoute(data.route);
+      setIsPublic(Boolean(data.route.public));
+      setHazards(Array.isArray(data.route.hazards) ? data.route.hazards : []);
+      setPhotos(
+        Array.isArray(data.route.photos)
+          ? data.route.photos.map((p, index) => ({
+              id: p.url || `saved-${index}`,
+              url: p.url,
+              previewUrl: p.url,
+              caption: p.caption || "",
+              uploadedAt: p.uploadedAt,
+            }))
+          : []
+      );
+      setEditing(false);
+      showSnackbar("Route updated", "success");
+
+      if (redirectToExplore && data.route.public) {
+        navigate("/app/explore");
+      }
+    } catch (e) {
+      console.error("saveChanges error", e);
+      showSnackbar(e.message || "Failed to save changes", "error");
+    } finally {
+      setSaving(false);
     }
+  }
 
-    const data = await res.json();
+  async function deleteRoute() {
+    try {
+      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
 
-    setRoute(data.route);
-    setIsPublic(Boolean(data.route.public));
-    setHazards(Array.isArray(data.route.hazards) ? data.route.hazards : []);
-    setPhotos(
-      Array.isArray(data.route.photos)
-        ? data.route.photos.map((p, index) => ({
-            id: p.url || `saved-${index}`,
-            url: p.url,
-            previewUrl: p.url,
-            caption: p.caption || "",
-            uploadedAt: p.uploadedAt,
-          }))
-        : []
-    );
-    setEditing(false);
-    showSnackbar("Route updated", "success");
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-    if (redirectToExplore && data.route.public) {
+      showSnackbar("Route deleted", "success");
       navigate("/app/explore");
+    } catch (e) {
+      console.error("deleteRoute error", e);
+      showSnackbar("Failed to delete route", "error");
     }
-  } catch (e) {
-    console.error("saveChanges error", e);
-    showSnackbar(e.message || "Failed to save changes", "error");
-  } finally {
-    setSaving(false);
   }
-}
 
- async function deleteRoute() {
-  try {
-    const res = await fetch(`${API_BASE}/api/routes/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
-    showSnackbar("Route deleted", "success");
-    navigate("/app/explore");
-  } catch (e) {
-    console.error("deleteRoute error", e);
-    showSnackbar("Failed to delete route", "error");
+  function removeHazard(idx) {
+    setHazards((prev) => prev.filter((_, i) => i !== idx));
   }
-}
-
-function removeHazard(idx) {
-  setHazards((prev) => prev.filter((_, i) => i !== idx));
-}
 
   function renderEditSection() {
     return (
-      <section style={{ marginBottom: 20 }}>
+      <section style={{ marginTop: 16 }}>
         <h3>Edit basic info</h3>
 
         <label style={{ display: "block", marginBottom: 6 }}>Title</label>
@@ -422,7 +426,7 @@ function removeHazard(idx) {
       <h1>Completed Trail</h1>
 
       <div className="completed-trail-top">
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="completed-trail-main">
           <div style={{ position: "relative", marginBottom: 12 }}>
             <GoogleMap
               mapContainerStyle={MAP_CONTAINER}
@@ -515,109 +519,10 @@ function removeHazard(idx) {
             </p>
           </div>
 
-          <div
-            style={{
-              marginTop: 16,
-              border: "1px solid var(--border)",
-              borderRadius: 12,
-              padding: 12,
-              background: "var(--surface)",
-            }}
-          >
-            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0 }}>Trail Photos</h3>
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                {photos.length}/{MAX_PHOTOS} attached
-              </span>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={handlePhotoSelection}
-              />
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                jpg, png, webp
-              </span>
-            </div>
-
-            {photos.length === 0 ? (
-              <div style={{ marginTop: 10, color: "var(--muted)" }}>
-                No photos added yet.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 12,
-                  marginTop: 12,
-                }}
-              >
-                {photos.map((photo, index) => (
-                  <div
-                    key={photo.id || photo.url || index}
-                    style={{
-                      border: "1px solid var(--border)",
-                      borderRadius: 10,
-                      padding: 10,
-                      background: "var(--surface-2, var(--surface))",
-                    }}
-                  >
-                    <img
-                      src={photo.previewUrl || photo.url}
-                      alt={photo.caption || `Trail photo ${index + 1}`}
-                      style={{
-                        width: "100%",
-                        height: 140,
-                        objectFit: "cover",
-                        borderRadius: 8,
-                        display: "block",
-                        marginBottom: 8,
-                      }}
-                    />
-
-                    <input
-                      type="text"
-                      placeholder="Optional caption"
-                      value={photo.caption || ""}
-                      onChange={(e) => updatePhotoCaption(index, e.target.value)}
-                      style={{ width: "100%", marginBottom: 8, padding: 8 }}
-                    />
-
-                    <button
-                      onClick={() => removePhoto(index)}
-                      style={{
-                        width: "100%",
-                        border: "1px solid #c62828",
-                        color: "#c62828",
-                        background: "transparent",
-                        borderRadius: 6,
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Remove Photo
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {hazards.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <h3 style={{ marginBottom: 8 }}>Hazards ({hazards.length})</h3>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                }}
-              >
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {hazards.map((h, idx) => (
                   <div
                     key={idx}
@@ -662,20 +567,169 @@ function removeHazard(idx) {
               </div>
             </div>
           )}
+
+          <section className="review-section">
+            <h3>Review this trail</h3>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", marginBottom: 6 }}>Stars</label>
+              <div>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    className="star-button"
+                    onClick={() => setStars(s)}
+                    style={{
+                      fontSize: 22,
+                      color: s <= stars ? "gold" : "var(--muted)",
+                    }}
+                    aria-pressed={s <= stars}
+                    title={`${s} star${s > 1 ? "s" : ""}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                <span style={{ marginLeft: 8 }} className="muted">
+                  {stars}/5
+                </span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", marginBottom: 6 }}>
+                Terrain Level (0–10): {terrain}
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                value={terrain}
+                onChange={(e) => setTerrain(Number(e.target.value))}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={5}
+                placeholder="Write details about the trail (surface, hazards, highlights...)"
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  marginBottom: 8,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <h3 style={{ margin: 0 }}>Trail Photos</h3>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                  {photos.length}/{MAX_PHOTOS} attached
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handlePhotoSelection}
+                />
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                  jpg, png, webp
+                </span>
+              </div>
+
+              {photos.length === 0 ? (
+                <div style={{ marginTop: 10, color: "var(--muted)" }}>
+                  No photos added yet.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  {photos.map((photo, index) => (
+                    <div
+                      key={photo.id || photo.url || index}
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        padding: 10,
+                        background: "var(--surface-2, var(--surface))",
+                      }}
+                    >
+                      <img
+                        src={photo.previewUrl || photo.url}
+                        alt={photo.caption || `Trail photo ${index + 1}`}
+                        style={{
+                          width: "100%",
+                          height: 140,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                          display: "block",
+                          marginBottom: 8,
+                        }}
+                      />
+
+                      <input
+                        type="text"
+                        placeholder="Optional caption"
+                        value={photo.caption || ""}
+                        onChange={(e) => updatePhotoCaption(index, e.target.value)}
+                        style={{ width: "100%", marginBottom: 8, padding: 8 }}
+                      />
+
+                      <button
+                        onClick={() => removePhoto(index)}
+                        style={{
+                          width: "100%",
+                          border: "1px solid #c62828",
+                          color: "#c62828",
+                          background: "transparent",
+                          borderRadius: 6,
+                          padding: "6px 10px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Remove Photo
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => saveChanges()} disabled={saving}>
+                  {saving ? "Saving..." : "Save review"}
+                </button>
+              </div>
+          </section>
+
+          {editing && renderEditSection()}
         </div>
 
         <div className="completed-trail-sidebar">
-          <div
-            style={{
-              marginBottom: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
-            <button onClick={() => saveChanges()} disabled={saving} aria-label="Save route">
-              {saving ? "Saving..." : "Save"}
-            </button>
+          <div className="sidebar-actions">
             <button onClick={() => setEditing((v) => !v)}>
               {editing ? "Hide Edit" : "Edit"}
             </button>
@@ -688,7 +742,7 @@ function removeHazard(idx) {
                 Delete
               </button>
             ) : (
-              <div style={{ display: "flex", gap: 8 }}>
+              <>
                 <button
                   onClick={deleteRoute}
                   className="delete-btn"
@@ -700,96 +754,31 @@ function removeHazard(idx) {
                 <button onClick={() => setConfirmingDelete(false)}>
                   Cancel
                 </button>
-              </div>
+              </>
             )}
           </div>
 
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "block", marginBottom: 6 }}>Public</label>
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
+          <div className="public-toggle-row">
+            <label htmlFor="public-toggle">Public</label>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <span className="slider"></span>
+            </label>
           </div>
 
           <div style={{ marginTop: 16 }}>
-            <button onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+            <button
+              onClick={() => navigator.clipboard?.writeText(window.location.href)}
+            >
               Copy Link
             </button>
           </div>
         </div>
       </div>
-
-      <section className="review-section" style={{ marginBottom: 20 }}>
-        <h3>Review this trail</h3>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", marginBottom: 6 }}>Stars</label>
-          <div>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                className="star-button"
-                onClick={() => setStars(s)}
-                style={{
-                  fontSize: 22,
-                  color: s <= stars ? "gold" : "var(--muted)",
-                }}
-                aria-pressed={s <= stars}
-                title={`${s} star${s > 1 ? "s" : ""}`}
-              >
-                ★
-              </button>
-            ))}
-            <span style={{ marginLeft: 8 }} className="muted">
-              {stars}/5
-            </span>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", marginBottom: 6 }}>
-            Terrain Level (0–10): {terrain}
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={terrain}
-            onChange={(e) => setTerrain(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={5}
-            placeholder="Write details about the trail (surface, hazards, highlights...)"
-          />
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => saveChanges()} disabled={saving}>
-            {saving ? "Saving..." : "Save review"}
-          </button>
-          <button
-            disabled={saving}
-            onClick={() => {
-              const next = !isPublic;
-              setIsPublic(next);
-              saveChanges({ overridePublic: next, redirectToExplore: true });
-            }}
-          >
-            Toggle Public & Save
-          </button>
-        </div>
-      </section>
-
-      {editing && renderEditSection()}
     </div>
   );
 }
