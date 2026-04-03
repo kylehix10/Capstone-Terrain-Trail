@@ -2,7 +2,6 @@
   padding: 32px 0;
 }
 
-/* center and allow wider card */
 .settings-wrap {
   max-width: 1240px;
   margin: 0 auto;
@@ -26,7 +25,6 @@
   width: 100%;
 }
 
-/* header styling so "Settings" isn't plain text */
 .settings-cardHeader {
   background: var(--brand);
   color: #fff;
@@ -135,6 +133,7 @@
   outline: none;
   background: var(--surface-2);
   color: var(--text);
+  box-sizing: border-box;
 }
 
 .field-input:focus {
@@ -255,7 +254,97 @@
   padding: 0 16px 16px 16px;
 }
 
-/* Optional: small tweaks in dark mode */
 :root.dark .settings-card {
   box-shadow: 0 2px 18px rgba(0,0,0,0.35);
+}
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+
+  /* Less top padding so content starts higher */
+  .settings-page {
+    padding: 16px 0;
+  }
+
+  /* Tighter horizontal padding */
+  .settings-wrap {
+    padding: 0 10px;
+  }
+
+  /* Smaller title */
+  .settings-title {
+    font-size: 22px;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  /* Slightly smaller card header */
+  .settings-cardHeader {
+    padding: 14px 16px;
+    font-size: 16px;
+  }
+
+  /* Tighter body padding */
+  .settings-body {
+    padding: 14px 14px 18px 14px;
+    gap: 14px;
+  }
+
+  /* Stack the row: value above button */
+  .settings-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* Make Change button full width on mobile */
+  .settings-row .btn {
+    width: 100%;
+  }
+
+  /* Slightly smaller value box */
+  .rowValue {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  /* Danger zone buttons stack vertically */
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Modal fills more of the screen on mobile */
+  .modalCard {
+    border-radius: 10px;
+  }
+
+  .modalOverlay {
+    padding: 12px;
+    align-items: flex-end; /* slide up from bottom */
+  }
+
+  .modalCard {
+    border-radius: 16px 16px 10px 10px;
+  }
+
+  .modalBody {
+    padding: 14px;
+  }
+
+  .modalActions {
+    padding: 0 14px 14px 14px;
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  /* Make modal buttons full width */
+  .modalActions .btn {
+    width: 100%;
+    text-align: center;
+  }
 }

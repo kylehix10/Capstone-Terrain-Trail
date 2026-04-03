@@ -80,8 +80,28 @@ const Layout = () => {
           <Outlet />
         </main>
       </div>
+      
+      {/* BOTTOM NAV — only visible on mobile */}
+      <nav className="bottom-nav">
+        <NavLink to="explore" className={({ isActive }) => isActive ? "bottom-link active" : "bottom-link"}>
+          <span className="icon">🏠</span>
+          <span className="bottom-label">Home</span>
+        </NavLink>
+        <NavLink to="create" className={({ isActive }) => isActive ? "bottom-link active" : "bottom-link"}>
+          <span className="icon">➕</span>
+          <span className="bottom-label">Add</span>
+        </NavLink>
+        <NavLink to="library" className={({ isActive }) => isActive ? "bottom-link active" : "bottom-link"}>
+          <span className="icon">📖</span>
+          <span className="bottom-label">Library</span>
+        </NavLink>
+        <NavLink to="settings" className={({ isActive }) => isActive ? "bottom-link active" : "bottom-link"}>
+          <span className="icon">⚙️</span>
+          <span className="bottom-label">Settings</span>
+        </NavLink>
+      </nav>
     </div>
   );
 };
-
+ 
 export default Layout;
