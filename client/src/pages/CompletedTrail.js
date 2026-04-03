@@ -409,7 +409,7 @@ export default function CompletedTrail() {
     );
   }
 
-  if (loading) {
+    if (loading) {
     return (
       <div className="completed-trail-container">
         <p style={{ color: "var(--muted)" }}>Loading trail…</p>
@@ -420,6 +420,7 @@ export default function CompletedTrail() {
   if (!route) return null;
 
   const isRecordedRoute = Array.isArray(route?.path) && route.path.length > 1;
+  const canEdit = editing;
 
   return (
     <div className="completed-trail-container">
@@ -503,9 +504,42 @@ export default function CompletedTrail() {
           </div>
 
           <div className="completed-card">
-            <h2 style={{ marginTop: 0 }}>
-              {route.title || `${route.origin} → ${route.destination}`}
-            </h2>
+            {canEdit ? (
+              <>
+                <label style={{ display: "block", marginBottom: 6 }}>Title</label>
+                <input
+                  value={route.title || ""}
+                  onChange={(e) => setRoute({ ...route, title: e.target.value })}
+                  style={{ marginBottom: 12, width: "100%" }}
+                />
+
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Transportation
+                </label>
+                <select
+                  value={route.type || "👣"}
+                  onChange={(e) => setRoute({ ...route, type: e.target.value })}
+                  style={{ marginBottom: 12, width: "100%" }}
+                >
+                  <option>👣</option>
+                  <option>🚲</option>
+                  <option>🚗</option>
+                  <option>🛹</option>
+                  <option>🛴</option>
+                  <option>🏃</option>
+                </select>
+              </>
+            ) : (
+              <>
+                <h2 style={{ marginTop: 0 }}>
+                  {route.title || `${route.origin} → ${route.destination}`}
+                </h2>
+                <p style={{ marginTop: 6 }}>
+                  <strong>Transportation:</strong> {route.type}
+                </p>
+              </>
+            )}
+
             <p style={{ marginTop: 6 }}>
               <strong>Origin:</strong> {route.origin}
               <br />
@@ -514,8 +548,6 @@ export default function CompletedTrail() {
               <strong>Distance:</strong> {route.distance}
               <br />
               <strong>Duration:</strong> {route.duration}
-              <br />
-              <strong>Type:</strong> {route.type}
             </p>
           </div>
 
@@ -578,10 +610,15 @@ export default function CompletedTrail() {
                   <button
                     key={s}
                     className="star-button"
-                    onClick={() => setStars(s)}
+                    onClick={() => {
+                      if (canEdit) setStars(s);
+                    }}
+                    disabled={!canEdit}
                     style={{
                       fontSize: 22,
                       color: s <= stars ? "gold" : "var(--muted)",
+                      opacity: canEdit ? 1 : 0.7,
+                      cursor: canEdit ? "pointer" : "not-allowed",
                     }}
                     aria-pressed={s <= stars}
                     title={`${s} star${s > 1 ? "s" : ""}`}
@@ -604,7 +641,10 @@ export default function CompletedTrail() {
                 min={0}
                 max={10}
                 value={terrain}
-                onChange={(e) => setTerrain(Number(e.target.value))}
+                onChange={(e) => {
+                  if (canEdit) setTerrain(Number(e.target.value));
+                }}
+                disabled={!canEdit}
                 style={{ width: "100%" }}
               />
             </div>
@@ -613,7 +653,10 @@ export default function CompletedTrail() {
               <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
               <textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={(e) => {
+                  if (canEdit) setComment(e.target.value);
+                }}
+                disabled={!canEdit}
                 rows={5}
                 placeholder="Write details about the trail (surface, hazards, highlights...)"
               />
@@ -648,7 +691,10 @@ export default function CompletedTrail() {
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   multiple
-                  onChange={handlePhotoSelection}
+                  onChange={(e) => {
+                    if (canEdit) handlePhotoSelection(e);
+                  }}
+                  disabled={!canEdit}
                 />
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
                   jpg, png, webp
@@ -695,12 +741,18 @@ export default function CompletedTrail() {
                         type="text"
                         placeholder="Optional caption"
                         value={photo.caption || ""}
-                        onChange={(e) => updatePhotoCaption(index, e.target.value)}
+                        onChange={(e) => {
+                          if (canEdit) updatePhotoCaption(index, e.target.value);
+                        }}
+                        disabled={!canEdit}
                         style={{ width: "100%", marginBottom: 8, padding: 8 }}
                       />
 
                       <button
-                        onClick={() => removePhoto(index)}
+                        onClick={() => {
+                          if (canEdit) removePhoto(index);
+                        }}
+                        disabled={!canEdit}
                         style={{
                           width: "100%",
                           border: "1px solid #c62828",
@@ -708,7 +760,8 @@ export default function CompletedTrail() {
                           background: "transparent",
                           borderRadius: 6,
                           padding: "6px 10px",
-                          cursor: "pointer",
+                          cursor: canEdit ? "pointer" : "not-allowed",
+                          opacity: canEdit ? 1 : 0.7,
                         }}
                       >
                         Remove Photo
@@ -718,20 +771,30 @@ export default function CompletedTrail() {
                 </div>
               )}
             </div>
+
+            {canEdit && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={() => saveChanges()} disabled={saving}>
-                  {saving ? "Saving..." : "Save review"}
+                  {saving ? "Saving..." : "Save changes"}
                 </button>
               </div>
+            )}
           </section>
-
-          {editing && renderEditSection()}
         </div>
 
         <div className="completed-trail-sidebar">
           <div className="sidebar-actions">
-            <button onClick={() => setEditing((v) => !v)}>
-              {editing ? "Hide Edit" : "Edit"}
+            <button
+              onClick={async () => {
+                if (editing) {
+                  await saveChanges();
+                  setEditing(false);
+                } else {
+                  setEditing(true);
+                }
+              }}
+            >
+              {editing ? "Done" : "Edit"}
             </button>
 
             {!confirmingDelete ? (
@@ -762,9 +825,13 @@ export default function CompletedTrail() {
             <label htmlFor="public-toggle">Public</label>
             <label className="toggle-switch">
               <input
+                id="public-toggle"
                 type="checkbox"
                 checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={!canEdit}
+                onChange={(e) => {
+                  if (canEdit) setIsPublic(e.target.checked);
+                }}
               />
               <span className="slider"></span>
             </label>
