@@ -185,3 +185,10 @@
     font-size: 22px;
   }
 }
+
+
+
+
+button {
+  justify-content: space-evenly;
+}

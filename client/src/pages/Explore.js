@@ -271,9 +271,9 @@ export default function Explore() {
         />
       </div>
 
-      <div className="explore-toolbar">
+      <div className="explore-toolbar" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         <span className="label">Filter by Mode:</span>
-        <div className="buttons">
+        <div className="buttons" style={{ display: "flex", width: "100%", gap: "8px" }}>
           {[
             { key: "All", label: "Show All" },
             { key: "👣", label: "Walking" },
@@ -290,6 +290,7 @@ export default function Explore() {
               className={`filter-btn ${
                 activeFilter === opt.key ? "selected" : ""
               }`}
+              style={{ flex: 1, padding: "inherit" }} 
             >
               {opt.key}
             </button>
