@@ -884,13 +884,6 @@ app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
       });
     }
 
-    const ownerId = String(route.owner?._id || route.owner);
-    if (ownerId === String(req.userId)) {
-      return res.status(403).json({
-        message: "You cannot vote on your own route",
-      });
-    }
-
     if (!route.votes) {
       route.votes = { score: 0, upvoters: [], downvoters: [] };
     }
