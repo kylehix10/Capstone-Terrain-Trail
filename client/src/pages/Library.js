@@ -260,66 +260,71 @@ export default function Library() {
   // ── load route onto map ───────────────────────────────────────────────────
  
   async function loadRoute(route) {
-    if (!window.google?.maps) return;
+  if (!window.google?.maps) return;
 
-    setLoadingRouteId(route.id);
-    setSelectedRouteId(route.id);
     setLoadedReview(route.review || null);
-    setLoadedHazards(Array.isArray(route.hazards) ? route.hazards : []);
-    setLoadedPath([]);
-    setLoadedPhotos(Array.isArray(route.photos) ? route.photos : []);
+  setLoadedHazards(Array.isArray(route.hazards) ? route.hazards : []);
+  setLoadedPhotos(Array.isArray(route.photos) ? route.photos : []);
 
-    try {
-      if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
-        setDirectionsResult(null);
-        setLoadedPath(route.path);
+  // clear stale blue route from a previous selection
+  setDirectionsResult(null);
+  setLoadedPath([]);
 
-        const bounds = new window.google.maps.LatLngBounds();
-        route.path.forEach((p) => bounds.extend(p));
-        mapRef.current?.fitBounds(bounds, 40);
+  try {
+    const isRecordedRoute =
+      (route.recorded === true || Array.isArray(route.path)) &&
+      Array.isArray(route.path) &&
+      route.path.length > 1;
 
-        const first = route.path[0];
-        if (first) {
-          setOriginPosition(first);
-          setMapCenter(first);
-        }
+    if (isRecordedRoute) {
+      setLoadedPath(route.path);
 
-        setDistanceText(route.distance || "");
-        setDurationText(route.duration || "");
-        return;
+      const bounds = new window.google.maps.LatLngBounds();
+      route.path.forEach((p) => bounds.extend(p));
+      mapRef.current?.fitBounds(bounds, 40);
+
+      const first = route.path[0];
+      if (first) {
+        setOriginPosition(first);
+        setMapCenter(first);
       }
 
-      const service = new window.google.maps.DirectionsService();
-      const result = await service.route({
-        origin: route.origin,
-        destination: route.destination,
-        travelMode: travelModeFromType(route.type),
-        unitSystem: window.google.maps.UnitSystem.IMPERIAL,
-      });
-
-      setDirectionsResult(result);
-
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || route.distance || "");
-      setDurationText(leg.duration?.text || route.duration || "");
-
-      const lat = leg.start_location.lat();
-      const lng = leg.start_location.lng();
-      setOriginPosition({ lat, lng });
-      setMapCenter({ lat, lng });
-
-      mapRef.current?.fitBounds(result.routes[0].bounds);
-    } catch (err) {
-      console.error("Failed to load route:", err);
-      showSnackbar("Could not load route.", "error");
-      setLoadedReview(null);
-      setLoadedHazards([]);
-      setLoadedPath([]);
-      setLoadedPhotos([]);
-    } finally {
-      setLoadingRouteId(null);
+      setDistanceText(route.distance || "");
+      setDurationText(route.duration || "");
+      return;
     }
+
+    const service = new window.google.maps.DirectionsService();
+    const result = await service.route({
+      origin: route.origin,
+      destination: route.destination,
+      travelMode: travelModeFromType(route.type),
+      unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+    });
+
+    setDirectionsResult(result);
+
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance?.text || route.distance || "");
+    setDurationText(leg.duration?.text || route.duration || "");
+
+    const lat = leg.start_location.lat();
+    const lng = leg.start_location.lng();
+    setOriginPosition({ lat, lng });
+    setMapCenter({ lat, lng });
+
+    mapRef.current?.fitBounds(result.routes[0].bounds);
+  } catch (err) {
+    console.error("Failed to load route:", err);
+    showSnackbar("Could not load route.", "error");
+    setLoadedReview(null);
+    setLoadedHazards([]);
+    setLoadedPath([]);
+    setLoadedPhotos([]);
+  } finally {
+    setLoadingRouteId(null);
   }
+}
 
   // ── delete ────────────────────────────────────────────────────────────────
  function requestDeleteRoute(routeId) {
@@ -705,18 +710,32 @@ async function performDeleteRoute(routeId) {
               mapTypeControl: false,
             }}
           >
-            {loadedPath.length > 1 ? (
-              <Polyline
-                path={loadedPath}
-                options={{
-                  strokeColor: "#e63946",
-                  strokeWeight: 4,
-                  strokeOpacity: 0.9,
-                }}
-              />
-            ) : (
-              directionsResult && <DirectionsRenderer directions={directionsResult} />
-            )}
+{loadedPath.length > 1 ? (
+  <>
+    <Polyline
+      path={loadedPath}
+      options={{
+        strokeColor: "#e63946",
+        strokeWeight: 4,
+        strokeOpacity: 0.9,
+      }}
+    />
+
+    {loadedPath[0] && (
+      <Marker position={loadedPath[0]} label="A" optimized={false} />
+    )}
+
+    {loadedPath[loadedPath.length - 1] && (
+      <Marker
+        position={loadedPath[loadedPath.length - 1]}
+        label="B"
+        optimized={false}
+      />
+    )}
+  </>
+) : (
+  directionsResult && <DirectionsRenderer directions={directionsResult} />
+)}
 
             {loadedHazards.map((h, idx) => (
               <Marker
