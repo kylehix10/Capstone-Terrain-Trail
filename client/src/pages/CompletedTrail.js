@@ -67,6 +67,256 @@ const HAZARD_EMOJI = {
   flood: "🌊",
 };
 
+function RichTextEditor({ value, onChange }) {
+  const editorRef = useRef(null);
+  const [active, setActive] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    ul: false,
+    ol: false,
+    h1: false,
+    h2: false,
+    h3: false,
+  });
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkText, setLinkText] = useState("");
+
+  const syncActiveState = () => {
+  const editor = editorRef.current;
+  if (!editor) return;
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const node = selection.anchorNode;
+
+  if (!editor.contains(node)) return;
+
+  const block =
+    document.queryCommandValue("formatBlock")?.toLowerCase?.() || "";
+
+  setActive({
+    bold: document.queryCommandState("bold"),
+    italic: document.queryCommandState("italic"),
+    underline: document.queryCommandState("underline"),
+    ul: document.queryCommandState("insertUnorderedList"),
+    ol: document.queryCommandState("insertOrderedList"),
+    h1: block.includes("h1"),
+    h2: block.includes("h2"),
+    h3: block.includes("h3"),
+  });
+};
+
+  useEffect(() => {
+    const el = editorRef.current;
+    if (el && el.innerHTML !== (value || "")) {
+      el.innerHTML = value || "";
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const handleSelection = () => syncActiveState();
+    document.addEventListener("selectionchange", handleSelection);
+    return () => document.removeEventListener("selectionchange", handleSelection);
+  }, []);
+
+  const syncValue = () => {
+    onChange(editorRef.current?.innerHTML || "");
+    syncActiveState();
+  };
+
+  const exec = (command, arg = null) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, arg);
+    syncValue();
+  };
+
+  const formatBlock = (tag) => {
+    editorRef.current?.focus();
+    document.execCommand("formatBlock", false, tag);
+    syncValue();
+  };
+
+  const insertLink = () => {
+    editorRef.current?.focus();
+    setShowLinkInput(true);
+  };
+
+  const applyLink = () => {
+    if (!linkUrl) return;
+
+    let url = linkUrl.trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = `https://${url}`;
+    }
+
+    const text = linkText.trim() || url;
+
+    editorRef.current?.focus();
+    document.execCommand(
+      "insertHTML",
+      false,
+      `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
+    );
+    setLinkUrl("");
+    setLinkText("");
+    setShowLinkInput(false);
+    syncValue();
+  };
+
+  const cancelLink = () => {
+    setLinkUrl("");
+    setShowLinkInput(false);
+    editorRef.current?.focus();
+  };
+
+  const btnClass = (isActive) => `toolbar-btn ${isActive ? "toolbar-btn-active" : ""}`;
+
+  return (
+    <div className="rich-text-editor">
+      <div className="rich-text-toolbar">
+  {/* Text styles */}
+  <div className="toolbar-group">
+    <button
+      type="button"
+      className={btnClass(active.bold)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec("bold")}
+    >
+      B
+    </button>
+
+    <button
+      type="button"
+      className={btnClass(active.italic)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec("italic")}
+    >
+      I
+    </button>
+
+    <button
+      type="button"
+      className={btnClass(active.underline)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec("underline")}
+    >
+      U
+    </button>
+  </div>
+
+  {/* Lists */}
+  <div className="toolbar-group">
+    <button
+      type="button"
+      className={btnClass(active.ul)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec("insertUnorderedList")}
+    >
+      • List
+    </button>
+
+    <button
+      type="button"
+      className={btnClass(active.ol)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec("insertOrderedList")}
+    >
+      1. List
+    </button>
+  </div>
+
+  {/* Link */}
+  <div className="toolbar-group">
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={insertLink}
+    >
+      Link
+    </button>
+  </div>
+
+  {/* Headings */}
+  <div className="toolbar-group">
+    <button
+  type="button"
+  className={btnClass(active.h1)}
+  onMouseDown={(e) => e.preventDefault()}
+  onClick={() => formatBlock(active.h1 ? "p" : "h1")}
+>
+  H1
+</button>
+
+<button
+  type="button"
+  className={btnClass(active.h2)}
+  onMouseDown={(e) => e.preventDefault()}
+  onClick={() => formatBlock(active.h2 ? "p" : "h2")}
+>
+  H2
+</button>
+
+<button
+  type="button"
+  className={btnClass(active.h3)}
+  onMouseDown={(e) => e.preventDefault()}
+  onClick={() => formatBlock(active.h3 ? "p" : "h3")}
+>
+  H3
+</button>
+  </div>
+</div>
+
+      {showLinkInput && (
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              margin: "10px 0",
+              alignItems: "center", 
+            }}
+          >
+          <input
+            type="text"
+            placeholder="Link text (optional)"
+            value={linkText}
+            onChange={(e) => setLinkText(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <input
+            type="text"
+            placeholder="Enter URL..."
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button type="button" onClick={applyLink}>
+            Add
+          </button>
+          <button type="button" onClick={cancelLink}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <div
+        ref={editorRef}
+        className="rich-text-area"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={syncValue}
+        onKeyUp={syncActiveState}
+        onMouseUp={syncActiveState}
+        onFocus={syncActiveState}
+      />
+    </div>
+  );
+}
+
+
 export default function CompletedTrail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -79,7 +329,6 @@ export default function CompletedTrail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [map, setMap] = useState(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [directionsResult, setDirectionsResult] = useState(null);
 
@@ -392,11 +641,9 @@ export default function CompletedTrail() {
               center={DEFAULT_CENTER}
               zoom={14}
               onLoad={(m) => {
-                setMap(m);
                 mapRef.current = m;
               }}
               onUnmount={() => {
-                setMap(null);
                 mapRef.current = null;
               }}
               options={{
@@ -442,22 +689,7 @@ export default function CompletedTrail() {
             </GoogleMap>
 
             {mapLoading && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff",
-                  padding: "4px 14px",
-                  borderRadius: 20,
-                  fontSize: 13,
-                  pointerEvents: "none",
-                }}
-              >
-                Loading map…
-              </div>
+              <div className="map-loading-pill">Loading map…</div>
             )}
           </div>
 
@@ -484,41 +716,17 @@ export default function CompletedTrail() {
               <h3 style={{ marginBottom: 8 }}>Hazards ({hazards.length})</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {hazards.map((h, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "6px 10px",
-                      borderRadius: 8,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                    }}
-                  >
+                  <div key={idx} className="hazard-row">
                     <span>
                       {HAZARD_EMOJI[h.type] || "⚠️"}{" "}
                       <strong>{h.type}</strong>{" "}
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: "var(--muted)",
-                        }}
-                      >
+                      <span className="muted-text">
                         ({h.lat?.toFixed(4)}, {h.lng?.toFixed(4)})
                       </span>
                     </span>
                     <button
                       onClick={() => removeHazard(idx)}
-                      style={{
-                        border: "1px solid #c62828",
-                        color: "#c62828",
-                        background: "transparent",
-                        borderRadius: 6,
-                        padding: "2px 8px",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
+                      className="hazard-remove-btn"
                     >
                       Remove
                     </button>
@@ -565,20 +773,13 @@ export default function CompletedTrail() {
                 max={10}
                 value={terrain}
                 onChange={(e) => setTerrain(Number(e.target.value))}
-                style={{ width: "100%",
-                  "--fill": `${terrain * 10}%`,
-                 }}
+                style={{ "--fill": `${terrain * 10}%` }}
               />
             </div>
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={5}
-                placeholder="Write details about the trail (surface, hazards, highlights...)"
-              />
+              <RichTextEditor value={comment} onChange={setComment} />
             </div>
 
             <div style={{ marginBottom: 12 }}>
@@ -622,35 +823,16 @@ export default function CompletedTrail() {
                   No photos added yet.
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: 12,
-                    marginTop: 12,
-                  }}
-                >
+                <div className="photo-grid">
                   {photos.map((photo, index) => (
                     <div
                       key={photo.id || photo.url || index}
-                      style={{
-                        border: "1px solid var(--border)",
-                        borderRadius: 10,
-                        padding: 10,
-                        background: "var(--surface-2, var(--surface))",
-                      }}
+                      className="photo-card"
                     >
                       <img
                         src={photo.previewUrl || photo.url}
                         alt={photo.caption || `Trail photo ${index + 1}`}
-                        style={{
-                          width: "100%",
-                          height: 140,
-                          objectFit: "cover",
-                          borderRadius: 8,
-                          display: "block",
-                          marginBottom: 8,
-                        }}
+                        className="photo-image"
                       />
 
                       <input
@@ -658,20 +840,12 @@ export default function CompletedTrail() {
                         placeholder="Optional caption"
                         value={photo.caption || ""}
                         onChange={(e) => updatePhotoCaption(index, e.target.value)}
-                        style={{ width: "100%", marginBottom: 8, padding: 8 }}
+                        className="photo-caption-input"
                       />
 
                       <button
                         onClick={() => removePhoto(index)}
-                        style={{
-                          width: "100%",
-                          border: "1px solid #c62828",
-                          color: "#c62828",
-                          background: "transparent",
-                          borderRadius: 6,
-                          padding: "6px 10px",
-                          cursor: "pointer",
-                        }}
+                        className="photo-remove-btn"
                       >
                         Remove Photo
                       </button>

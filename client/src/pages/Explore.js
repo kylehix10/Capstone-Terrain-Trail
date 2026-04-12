@@ -599,16 +599,11 @@ export default function Explore() {
                         </div>
 
                         {r.review.comment && (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              fontStyle: "italic",
-                              fontSize: "0.9rem",
-                            }}
-                          >
-                            "{r.review.comment}"
-                          </div>
-                        )}
+                              <div
+                            className="route-comment-preview"
+                            dangerouslySetInnerHTML={{ __html: r.review.comment }}
+                          />
+                            )}
                       </div>
                     )}
                   </div>

@@ -200,3 +200,28 @@
 button {
   justify-content: space-evenly;
 }
+
+.route-review a {
+  color: #0b63d6;        /* blue */
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.route-review a:hover {
+  color: #084bb5;        /* darker on hover */
+}
+
+.route-comment-preview {
+  margin-top: 6px;
+  font-size: 0.9rem;
+
+  max-height: 80px;        /* 👈 controls height */
+  overflow: hidden;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 3;   /* 👈 number of lines shown */
+  -webkit-box-orient: vertical;
+
+  line-height: 1.4;
+}
