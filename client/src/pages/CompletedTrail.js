@@ -67,7 +67,49 @@ const HAZARD_EMOJI = {
   flood: "🌊",
 };
 
-function RichTextEditor({ value, onChange }) {
+function photoSnapshot(photo) {
+  if (photo?.file instanceof File) {
+    return {
+      kind: "file",
+      name: photo.file.name,
+      size: photo.file.size,
+      type: photo.file.type,
+      lastModified: photo.file.lastModified,
+      caption: photo.caption || "",
+    };
+  }
+
+  return {
+    kind: "saved",
+    url: photo?.url || "",
+    caption: photo?.caption || "",
+    uploadedAt: photo?.uploadedAt || "",
+  };
+}
+
+function buildReviewSnapshot({
+  stars,
+  terrain,
+  comment,
+  isPublic,
+  hazards,
+  photos,
+}) {
+  return JSON.stringify({
+    stars: Number(stars) || 0,
+    terrain: Number(terrain) || 0,
+    comment: comment || "",
+    isPublic: Boolean(isPublic),
+    hazards: (hazards || []).map((h) => ({
+      type: h?.type || "",
+      lat: h?.lat ?? null,
+      lng: h?.lng ?? null,
+    })),
+    photos: (photos || []).map(photoSnapshot),
+  });
+}
+
+function RichTextEditor({ value, onChange, disabled = false }) {
   const editorRef = useRef(null);
   const [active, setActive] = useState({
     bold: false,
@@ -84,30 +126,30 @@ function RichTextEditor({ value, onChange }) {
   const [linkText, setLinkText] = useState("");
 
   const syncActiveState = () => {
-  const editor = editorRef.current;
-  if (!editor) return;
+    const editor = editorRef.current;
+    if (!editor) return;
 
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
 
-  const node = selection.anchorNode;
+    const node = selection.anchorNode;
 
-  if (!editor.contains(node)) return;
+    if (!editor.contains(node)) return;
 
-  const block =
-    document.queryCommandValue("formatBlock")?.toLowerCase?.() || "";
+    const block =
+      document.queryCommandValue("formatBlock")?.toLowerCase?.() || "";
 
-  setActive({
-    bold: document.queryCommandState("bold"),
-    italic: document.queryCommandState("italic"),
-    underline: document.queryCommandState("underline"),
-    ul: document.queryCommandState("insertUnorderedList"),
-    ol: document.queryCommandState("insertOrderedList"),
-    h1: block.includes("h1"),
-    h2: block.includes("h2"),
-    h3: block.includes("h3"),
-  });
-};
+    setActive({
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      ul: document.queryCommandState("insertUnorderedList"),
+      ol: document.queryCommandState("insertOrderedList"),
+      h1: block.includes("h1"),
+      h2: block.includes("h2"),
+      h3: block.includes("h3"),
+    });
+  };
 
   useEffect(() => {
     const el = editorRef.current;
@@ -123,28 +165,34 @@ function RichTextEditor({ value, onChange }) {
   }, []);
 
   const syncValue = () => {
-    onChange(editorRef.current?.innerHTML || "");
+    if (!disabled) {
+      onChange(editorRef.current?.innerHTML || "");
+    }
     syncActiveState();
   };
 
   const exec = (command, arg = null) => {
+    if (disabled) return;
     editorRef.current?.focus();
     document.execCommand(command, false, arg);
     syncValue();
   };
 
   const formatBlock = (tag) => {
+    if (disabled) return;
     editorRef.current?.focus();
     document.execCommand("formatBlock", false, tag);
     syncValue();
   };
 
   const insertLink = () => {
+    if (disabled) return;
     editorRef.current?.focus();
     setShowLinkInput(true);
   };
 
   const applyLink = () => {
+    if (disabled) return;
     if (!linkUrl) return;
 
     let url = linkUrl.trim();
@@ -172,113 +220,123 @@ function RichTextEditor({ value, onChange }) {
     editorRef.current?.focus();
   };
 
-  const btnClass = (isActive) => `toolbar-btn ${isActive ? "toolbar-btn-active" : ""}`;
+  const btnClass = (isActive) =>
+    `toolbar-btn ${isActive ? "toolbar-btn-active" : ""}`;
 
   return (
     <div className="rich-text-editor">
       <div className="rich-text-toolbar">
-  {/* Text styles */}
-  <div className="toolbar-group">
-    <button
-      type="button"
-      className={btnClass(active.bold)}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec("bold")}
-    >
-      B
-    </button>
-
-    <button
-      type="button"
-      className={btnClass(active.italic)}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec("italic")}
-    >
-      I
-    </button>
-
-    <button
-      type="button"
-      className={btnClass(active.underline)}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec("underline")}
-    >
-      U
-    </button>
-  </div>
-
-  {/* Lists */}
-  <div className="toolbar-group">
-    <button
-      type="button"
-      className={btnClass(active.ul)}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec("insertUnorderedList")}
-    >
-      • List
-    </button>
-
-    <button
-      type="button"
-      className={btnClass(active.ol)}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec("insertOrderedList")}
-    >
-      1. List
-    </button>
-  </div>
-
-  {/* Link */}
-  <div className="toolbar-group">
-    <button
-      type="button"
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={insertLink}
-    >
-      Link
-    </button>
-  </div>
-
-  {/* Headings */}
-  <div className="toolbar-group">
-    <button
-  type="button"
-  className={btnClass(active.h1)}
-  onMouseDown={(e) => e.preventDefault()}
-  onClick={() => formatBlock(active.h1 ? "p" : "h1")}
->
-  H1
-</button>
-
-<button
-  type="button"
-  className={btnClass(active.h2)}
-  onMouseDown={(e) => e.preventDefault()}
-  onClick={() => formatBlock(active.h2 ? "p" : "h2")}
->
-  H2
-</button>
-
-<button
-  type="button"
-  className={btnClass(active.h3)}
-  onMouseDown={(e) => e.preventDefault()}
-  onClick={() => formatBlock(active.h3 ? "p" : "h3")}
->
-  H3
-</button>
-  </div>
-</div>
-
-      {showLinkInput && (
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              margin: "10px 0",
-              alignItems: "center", 
-            }}
+        {/* Text styles */}
+        <div className="toolbar-group">
+          <button
+            type="button"
+            className={btnClass(active.bold)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("bold")}
+            disabled={disabled}
           >
+            B
+          </button>
+
+          <button
+            type="button"
+            className={btnClass(active.italic)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("italic")}
+            disabled={disabled}
+          >
+            I
+          </button>
+
+          <button
+            type="button"
+            className={btnClass(active.underline)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("underline")}
+            disabled={disabled}
+          >
+            U
+          </button>
+        </div>
+
+        {/* Lists */}
+        <div className="toolbar-group">
+          <button
+            type="button"
+            className={btnClass(active.ul)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("insertUnorderedList")}
+            disabled={disabled}
+          >
+            • List
+          </button>
+
+          <button
+            type="button"
+            className={btnClass(active.ol)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("insertOrderedList")}
+            disabled={disabled}
+          >
+            1. List
+          </button>
+        </div>
+
+        {/* Link */}
+        <div className="toolbar-group">
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={insertLink}
+            disabled={disabled}
+          >
+            Link
+          </button>
+        </div>
+
+        {/* Headings */}
+        <div className="toolbar-group">
+          <button
+            type="button"
+            className={btnClass(active.h1)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => formatBlock(active.h1 ? "p" : "h1")}
+            disabled={disabled}
+          >
+            H1
+          </button>
+
+          <button
+            type="button"
+            className={btnClass(active.h2)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => formatBlock(active.h2 ? "p" : "h2")}
+            disabled={disabled}
+          >
+            H2
+          </button>
+
+          <button
+            type="button"
+            className={btnClass(active.h3)}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => formatBlock(active.h3 ? "p" : "h3")}
+            disabled={disabled}
+          >
+            H3
+          </button>
+        </div>
+      </div>
+
+      {showLinkInput && !disabled && (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            margin: "10px 0",
+            alignItems: "center",
+          }}
+        >
           <input
             type="text"
             placeholder="Link text (optional)"
@@ -305,17 +363,17 @@ function RichTextEditor({ value, onChange }) {
       <div
         ref={editorRef}
         className="rich-text-area"
-        contentEditable
+        contentEditable={!disabled}
         suppressContentEditableWarning
         onInput={syncValue}
         onKeyUp={syncActiveState}
         onMouseUp={syncActiveState}
         onFocus={syncActiveState}
+        style={disabled ? { pointerEvents: "none", opacity: 0.7 } : undefined}
       />
     </div>
   );
 }
-
 
 export default function CompletedTrail() {
   const { id } = useParams();
@@ -340,10 +398,30 @@ export default function CompletedTrail() {
   const [hazards, setHazards] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+
+  const [saveStatus, setSaveStatus] = useState("saved");
+  const [lastSavedTime, setLastSavedTime] = useState(null);
+
+  const autosaveTimerRef = useRef(null);
+  const lastSavedSnapshotRef = useRef("");
+  const isHydratingRef = useRef(true);
+  const saveInProgressRef = useRef(false);
+  const pendingAutosaveRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchRoute() {
       setLoading(true);
+      isHydratingRef.current = true;
+
       try {
         const res = await fetch(`${API_BASE}/api/routes/${id}`, {
           headers: authHeaders(),
@@ -378,10 +456,37 @@ export default function CompletedTrail() {
         setTerrain(found.review?.terrain ?? 5);
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
+
+        let currentUserId = null;
+        try {
+          currentUserId = JSON.parse(localStorage.getItem("user"))?.id;
+        } catch (err) {
+          currentUserId = null;
+        }
+        setIsOwner(found.userId === currentUserId);
+
+        lastSavedSnapshotRef.current = buildReviewSnapshot({
+          stars: found.review?.stars ?? 0,
+          terrain: found.review?.terrain ?? 5,
+          comment: found.review?.comment || "",
+          isPublic: Boolean(found.public),
+          hazards: Array.isArray(found.hazards) ? found.hazards : [],
+          photos: Array.isArray(found.photos)
+            ? found.photos.map((p) => ({
+                url: p.url,
+                caption: p.caption || "",
+                uploadedAt: p.uploadedAt,
+              }))
+            : [],
+        });
+
+        setSaveStatus("saved");
+        setLastSavedTime(new Date());
       } catch (e) {
         console.error("fetchRoute error", e);
         navigate("/app/library", { replace: true });
       } finally {
+        isHydratingRef.current = false;
         setLoading(false);
       }
     }
@@ -430,13 +535,49 @@ export default function CompletedTrail() {
     }
   }, [route, loadDirections]);
 
+  useEffect(() => {
+    if (!route || loading || !isOwner || isHydratingRef.current) return;
+
+    const currentSnapshot = buildReviewSnapshot({
+      stars,
+      terrain,
+      comment,
+      isPublic,
+      hazards,
+      photos,
+    });
+
+    if (currentSnapshot === lastSavedSnapshotRef.current) return;
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    setSaveStatus("saving");
+
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      pendingAutosaveRef.current = true;
+      saveChanges({ silent: true }).catch(() => {});
+    }, 800);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [stars, terrain, comment, isPublic, hazards, photos, route, loading, isOwner]);
+
   function updatePhotoCaption(index, caption) {
+    if (!isOwner) return;
     setPhotos((prev) =>
       prev.map((p, i) => (i === index ? { ...p, caption } : p))
     );
   }
 
   function removePhoto(index) {
+    if (!isOwner) return;
+
     setPhotos((prev) => {
       const target = prev[index];
       if (target?.previewUrl?.startsWith("blob:")) {
@@ -451,6 +592,8 @@ export default function CompletedTrail() {
   }
 
   async function handlePhotoSelection(e) {
+    if (!isOwner) return;
+
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
@@ -533,10 +676,24 @@ export default function CompletedTrail() {
   async function saveChanges({
     overridePublic,
     redirectToExplore = false,
+    silent = false,
   } = {}) {
-    if (!route) return;
+    if (!route || !isOwner) {
+      if (!silent) {
+        showSnackbar("You cannot edit this review.", "error");
+      }
+      return;
+    }
 
+    if (saveInProgressRef.current) {
+      pendingAutosaveRef.current = true;
+      return;
+    }
+
+    saveInProgressRef.current = true;
     setSaving(true);
+    setSaveStatus("saving");
+
     const publicValue =
       overridePublic !== undefined ? overridePublic : isPublic;
 
@@ -583,7 +740,27 @@ export default function CompletedTrail() {
             }))
           : []
       );
-      showSnackbar("Route updated", "success");
+      lastSavedSnapshotRef.current = buildReviewSnapshot({
+        stars,
+        terrain,
+        comment,
+        isPublic: Boolean(data.route.public),
+        hazards: Array.isArray(data.route.hazards) ? data.route.hazards : [],
+        photos: Array.isArray(data.route.photos)
+          ? data.route.photos.map((p) => ({
+              url: p.url,
+              caption: p.caption || "",
+              uploadedAt: p.uploadedAt,
+            }))
+          : [],
+      });
+
+      setSaveStatus("saved");
+      setLastSavedTime(new Date());
+
+      if (!silent) {
+        showSnackbar("Route updated", "success");
+      }
 
       if (redirectToExplore && data.route.public) {
         navigate("/app/explore");
@@ -592,11 +769,22 @@ export default function CompletedTrail() {
       console.error("saveChanges error", e);
       showSnackbar(e.message || "Failed to save changes", "error");
     } finally {
+      saveInProgressRef.current = false;
       setSaving(false);
+
+      if (pendingAutosaveRef.current) {
+        pendingAutosaveRef.current = false;
+        saveChanges({ silent: true }).catch(() => {});
+      }
     }
   }
 
   async function deleteRoute() {
+    if (!isOwner) {
+      showSnackbar("You cannot delete this route.", "error");
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/routes/${id}`, {
         method: "DELETE",
@@ -614,6 +802,7 @@ export default function CompletedTrail() {
   }
 
   function removeHazard(idx) {
+    if (!isOwner) return;
     setHazards((prev) => prev.filter((_, i) => i !== idx));
   }
 
@@ -628,6 +817,7 @@ export default function CompletedTrail() {
   if (!route) return null;
 
   const isRecordedRoute = Array.isArray(route?.path) && route.path.length > 1;
+  const canEdit = isOwner;
 
   return (
     <div className="completed-trail-container">
@@ -650,6 +840,11 @@ export default function CompletedTrail() {
                 fullscreenControl: false,
                 streetViewControl: false,
                 mapTypeControl: false,
+                gestureHandling: canEdit ? "greedy" : "none",
+                scrollwheel: canEdit,
+                draggable: canEdit,
+                zoomControl: canEdit,
+                clickableIcons: false,
               }}
             >
               {isRecordedRoute ? (
@@ -727,6 +922,7 @@ export default function CompletedTrail() {
                     <button
                       onClick={() => removeHazard(idx)}
                       className="hazard-remove-btn"
+                      disabled={!canEdit}
                     >
                       Remove
                     </button>
@@ -739,6 +935,21 @@ export default function CompletedTrail() {
           <section className="review-section">
             <h3>Review this trail</h3>
 
+            <div
+              style={{
+                marginBottom: 10,
+                fontSize: 14,
+                fontWeight: 500,
+                color: saveStatus === "saving" ? "#888" : "green",
+              }}
+            >
+              {saveStatus === "saving"
+                ? "Saving..."
+                : lastSavedTime
+                ? "✓ Saved just now"
+                : "✓ Saved"}
+            </div>
+
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "block", marginBottom: 6 }}>Stars</label>
               <div>
@@ -746,10 +957,13 @@ export default function CompletedTrail() {
                   <button
                     key={s}
                     className="star-button"
-                    onClick={() => setStars(s)}
+                    onClick={() => canEdit && setStars(s)}
+                    disabled={!canEdit}
                     style={{
                       fontSize: 22,
                       color: s <= stars ? "gold" : "var(--muted)",
+                      opacity: canEdit ? 1 : 0.5,
+                      cursor: canEdit ? "pointer" : "not-allowed",
                     }}
                     aria-pressed={s <= stars}
                     title={`${s} star${s > 1 ? "s" : ""}`}
@@ -772,6 +986,7 @@ export default function CompletedTrail() {
                 min={0}
                 max={10}
                 value={terrain}
+                disabled={!canEdit}
                 onChange={(e) => setTerrain(Number(e.target.value))}
                 style={{ "--fill": `${terrain * 10}%` }}
               />
@@ -779,7 +994,11 @@ export default function CompletedTrail() {
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
-              <RichTextEditor value={comment} onChange={setComment} />
+              <RichTextEditor
+                value={comment}
+                onChange={setComment}
+                disabled={!canEdit}
+              />
             </div>
 
             <div style={{ marginBottom: 12 }}>
@@ -812,6 +1031,7 @@ export default function CompletedTrail() {
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handlePhotoSelection}
+                  disabled={!canEdit}
                 />
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
                   jpg, png, webp
@@ -841,11 +1061,13 @@ export default function CompletedTrail() {
                         value={photo.caption || ""}
                         onChange={(e) => updatePhotoCaption(index, e.target.value)}
                         className="photo-caption-input"
+                        disabled={!canEdit}
                       />
 
                       <button
                         onClick={() => removePhoto(index)}
                         className="photo-remove-btn"
+                        disabled={!canEdit}
                       >
                         Remove Photo
                       </button>
@@ -853,12 +1075,6 @@ export default function CompletedTrail() {
                   ))}
                 </div>
               )}
-            </div>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => saveChanges()} disabled={saving}>
-                {saving ? "Saving..." : "Save review"}
-              </button>
             </div>
           </section>
         </div>
@@ -869,6 +1085,7 @@ export default function CompletedTrail() {
               <button
                 onClick={() => setConfirmingDelete(true)}
                 className="delete-btn"
+                disabled={!canEdit}
               >
                 Delete
               </button>
@@ -878,11 +1095,15 @@ export default function CompletedTrail() {
                   onClick={deleteRoute}
                   className="delete-btn"
                   style={{ background: "red", color: "white" }}
+                  disabled={!canEdit}
                 >
                   Confirm
                 </button>
 
-                <button onClick={() => setConfirmingDelete(false)}>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={!canEdit}
+                >
                   Cancel
                 </button>
               </>
@@ -896,7 +1117,9 @@ export default function CompletedTrail() {
                 id="public-toggle"
                 type="checkbox"
                 checked={isPublic}
+                disabled={!canEdit}
                 onChange={async (e) => {
+                  if (!canEdit) return;
                   const nextValue = e.target.checked;
                   setIsPublic(nextValue);
                   await saveChanges({ overridePublic: nextValue });

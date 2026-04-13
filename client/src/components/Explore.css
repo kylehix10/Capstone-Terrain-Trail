@@ -221,6 +221,7 @@ button {
 
   display: -webkit-box;
   -webkit-line-clamp: 3;   /* 👈 number of lines shown */
+  line-clamp: 3;
   -webkit-box-orient: vertical;
 
   line-height: 1.4;
