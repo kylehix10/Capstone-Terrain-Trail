@@ -453,40 +453,42 @@ export default function CompletedTrail() {
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
 
-        // 1. Get identifiers from localStorage
+// 1. DYNAMICALLY IDENTIFY THE LOGGED-IN USER
 const storedUserRaw = localStorage.getItem("user") || localStorage.getItem("currentUser");
-let storedUser = null;
+let currentUser = null;
 try {
-  storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
-} catch {
-  storedUser = null;
+  currentUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+} catch (e) {
+  currentUser = null;
 }
 
-// Current User Info
-let currentUserId = storedUser?._id || storedUser?.id || localStorage.getItem("userId");
-let currentHandle = localStorage.getItem("username") || storedUser?.username || storedUser?.handle;
+// Get the current user's ID and Handle from their session
+const currentId = currentUser?._id || currentUser?.id || localStorage.getItem("userId");
+const currentHandle = currentUser?.username || currentUser?.handle || localStorage.getItem("username");
 
-// 2. Extract Route Owner Info from the 'found' object
-// Based on your debug log, the field is 'authorUsername'
+// 2. DYNAMICALLY IDENTIFY THE ROUTE OWNER
+// 'found' is the route data returned from your API
 const routeOwnerId = found.owner?._id || found.owner?.id || (typeof found.owner === 'string' ? found.owner : null);
 const routeOwnerHandle = found.authorUsername || found.owner?.username || found.owner?.handle || found.postedBy;
 
-// 3. Perform the Match
-const normalize = (str) => String(str || "").toLowerCase().replace(/^@/, "").trim();
+// 3. THE UNIVERSAL COMPARISON
+const clean = (str) => String(str || "").toLowerCase().replace(/^@/, "").trim();
 
-const isIdMatch = currentUserId && routeOwnerId && String(currentUserId) === String(routeOwnerId);
-const isHandleMatch = currentHandle && routeOwnerHandle && normalize(currentHandle) === normalize(routeOwnerHandle);
+// Check if IDs match OR if Usernames match
+const isIdMatch = currentId && routeOwnerId && String(currentId) === String(routeOwnerId);
+const isHandleMatch = currentHandle && routeOwnerHandle && clean(currentHandle) === clean(routeOwnerHandle);
 
+// If either matches, they are the owner
 const ownerMatch = !!(isIdMatch || isHandleMatch);
 
-// Debugging log to confirm it works now
-console.log("Ownership Match Found:", { 
-  current: currentHandle, 
-  owner: routeOwnerHandle, 
-  match: ownerMatch 
+console.log("Ownership Verified:", { 
+  isOwner: ownerMatch, 
+  user: currentHandle || currentId, 
+  owner: routeOwnerHandle || routeOwnerId 
 });
 
 setIsOwner(ownerMatch);
+
 
         lastSavedSnapshotRef.current = buildReviewSnapshot({
           stars: found.review?.stars ?? 0,
