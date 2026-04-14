@@ -226,7 +226,6 @@ function RichTextEditor({ value, onChange, disabled = false }) {
   return (
     <div className="rich-text-editor">
       <div className="rich-text-toolbar">
-        {/* Text styles */}
         <div className="toolbar-group">
           <button
             type="button"
@@ -259,7 +258,6 @@ function RichTextEditor({ value, onChange, disabled = false }) {
           </button>
         </div>
 
-        {/* Lists */}
         <div className="toolbar-group">
           <button
             type="button"
@@ -282,7 +280,6 @@ function RichTextEditor({ value, onChange, disabled = false }) {
           </button>
         </div>
 
-        {/* Link */}
         <div className="toolbar-group">
           <button
             type="button"
@@ -294,7 +291,6 @@ function RichTextEditor({ value, onChange, disabled = false }) {
           </button>
         </div>
 
-        {/* Headings */}
         <div className="toolbar-group">
           <button
             type="button"
@@ -457,13 +453,40 @@ export default function CompletedTrail() {
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
 
-        let currentUserId = null;
-        try {
-          currentUserId = JSON.parse(localStorage.getItem("user"))?.id;
-        } catch (err) {
-          currentUserId = null;
-        }
-        setIsOwner(found.userId === currentUserId);
+        // 1. Get identifiers from localStorage
+const storedUserRaw = localStorage.getItem("user") || localStorage.getItem("currentUser");
+let storedUser = null;
+try {
+  storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+} catch {
+  storedUser = null;
+}
+
+// Current User Info
+let currentUserId = storedUser?._id || storedUser?.id || localStorage.getItem("userId");
+let currentHandle = localStorage.getItem("username") || storedUser?.username || storedUser?.handle;
+
+// 2. Extract Route Owner Info from the 'found' object
+// Based on your debug log, the field is 'authorUsername'
+const routeOwnerId = found.owner?._id || found.owner?.id || (typeof found.owner === 'string' ? found.owner : null);
+const routeOwnerHandle = found.authorUsername || found.owner?.username || found.owner?.handle || found.postedBy;
+
+// 3. Perform the Match
+const normalize = (str) => String(str || "").toLowerCase().replace(/^@/, "").trim();
+
+const isIdMatch = currentUserId && routeOwnerId && String(currentUserId) === String(routeOwnerId);
+const isHandleMatch = currentHandle && routeOwnerHandle && normalize(currentHandle) === normalize(routeOwnerHandle);
+
+const ownerMatch = !!(isIdMatch || isHandleMatch);
+
+// Debugging log to confirm it works now
+console.log("Ownership Match Found:", { 
+  current: currentHandle, 
+  owner: routeOwnerHandle, 
+  match: ownerMatch 
+});
+
+setIsOwner(ownerMatch);
 
         lastSavedSnapshotRef.current = buildReviewSnapshot({
           stars: found.review?.stars ?? 0,
@@ -819,6 +842,193 @@ export default function CompletedTrail() {
   const isRecordedRoute = Array.isArray(route?.path) && route.path.length > 1;
   const canEdit = isOwner;
 
+  if (!canEdit) {
+    return (
+      <div className="completed-trail-container">
+        <h1>Completed Trail</h1>
+
+        <div className="completed-trail-top">
+          <div className="completed-trail-main">
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <GoogleMap
+                mapContainerStyle={MAP_CONTAINER}
+                center={DEFAULT_CENTER}
+                zoom={14}
+                onLoad={(m) => {
+                  mapRef.current = m;
+                }}
+                onUnmount={() => {
+                  mapRef.current = null;
+                }}
+                options={{
+                  fullscreenControl: false,
+                  streetViewControl: false,
+                  mapTypeControl: false,
+                  gestureHandling: "none",
+                  scrollwheel: false,
+                  draggable: false,
+                  zoomControl: false,
+                  clickableIcons: false,
+                }}
+              >
+                {isRecordedRoute ? (
+                  <Polyline
+                    path={route.path}
+                    options={{
+                      strokeColor: "#e63946",
+                      strokeWeight: 4,
+                      strokeOpacity: 0.9,
+                    }}
+                  />
+                ) : (
+                  directionsResult && (
+                    <DirectionsRenderer
+                      directions={directionsResult}
+                      options={{
+                        suppressMarkers: false,
+                        polylineOptions: {
+                          strokeColor: "#0b63d6",
+                          strokeWeight: 5,
+                          strokeOpacity: 0.85,
+                        },
+                      }}
+                    />
+                  )
+                )}
+
+                {hazards.map((h, idx) => (
+                  <Marker
+                    key={idx}
+                    position={{ lat: h.lat, lng: h.lng }}
+                    icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
+                    title={h.type}
+                    optimized={false}
+                  />
+                ))}
+              </GoogleMap>
+
+              {mapLoading && <div className="map-loading-pill">Loading map…</div>}
+            </div>
+
+            <div className="completed-card">
+              <h2 style={{ marginTop: 0 }}>
+                {route.title || `${route.origin} → ${route.destination}`}
+              </h2>
+
+              <p style={{ marginTop: 6 }}>
+                <strong>Transportation:</strong> {route.type}
+                <br />
+                <strong>Origin:</strong> {route.origin}
+                <br />
+                <strong>Destination:</strong> {route.destination}
+                <br />
+                <strong>Distance:</strong> {route.distance}
+                <br />
+                <strong>Duration:</strong> {route.duration}
+              </p>
+            </div>
+
+            {hazards.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <h3 style={{ marginBottom: 8 }}>Hazards ({hazards.length})</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {hazards.map((h, idx) => (
+                    <div key={idx} className="hazard-row">
+                      <span>
+                        {HAZARD_EMOJI[h.type] || "⚠️"}{" "}
+                        <strong>{h.type}</strong>{" "}
+                        <span className="muted-text">
+                          ({h.lat?.toFixed(4)}, {h.lng?.toFixed(4)})
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <section className="review-section">
+              <h3>Trail Review</h3>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 6 }}>Stars</label>
+                <div style={{ fontSize: 22, lineHeight: 1 }}>
+                  {"★".repeat(stars)}
+                  {"☆".repeat(5 - stars)}
+                  <span style={{ marginLeft: 8, fontSize: 14 }} className="muted">
+                    {stars}/5
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Terrain Level (0–10): {terrain}
+                </label>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
+                <div
+                  className="route-comment-preview"
+                  dangerouslySetInnerHTML={{
+                    __html: comment || "No comment added yet.",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    marginBottom: 8,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h3 style={{ margin: 0 }}>Trail Photos</h3>
+                  <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                    {photos.length}/{MAX_PHOTOS} attached
+                  </span>
+                </div>
+
+                {photos.length === 0 ? (
+                  <div style={{ marginTop: 10, color: "var(--muted)" }}>
+                    No photos added yet.
+                  </div>
+                ) : (
+                  <div className="photo-grid">
+                    {photos.map((photo, index) => (
+                      <div key={photo.id || photo.url || index} className="photo-card">
+                        <img
+                          src={photo.previewUrl || photo.url}
+                          alt={photo.caption || `Trail photo ${index + 1}`}
+                          className="photo-image"
+                        />
+                        {photo.caption ? (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 13,
+                              color: "var(--muted)",
+                            }}
+                          >
+                            {photo.caption}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="completed-trail-container">
       <h1>Completed Trail</h1>
@@ -883,9 +1093,7 @@ export default function CompletedTrail() {
               ))}
             </GoogleMap>
 
-            {mapLoading && (
-              <div className="map-loading-pill">Loading map…</div>
-            )}
+            {mapLoading && <div className="map-loading-pill">Loading map…</div>}
           </div>
 
           <div className="completed-card">
@@ -957,13 +1165,12 @@ export default function CompletedTrail() {
                   <button
                     key={s}
                     className="star-button"
-                    onClick={() => canEdit && setStars(s)}
-                    disabled={!canEdit}
+                    onClick={() => setStars(s)}
                     style={{
                       fontSize: 22,
                       color: s <= stars ? "gold" : "var(--muted)",
-                      opacity: canEdit ? 1 : 0.5,
-                      cursor: canEdit ? "pointer" : "not-allowed",
+                      opacity: 1,
+                      cursor: "pointer",
                     }}
                     aria-pressed={s <= stars}
                     title={`${s} star${s > 1 ? "s" : ""}`}
@@ -986,7 +1193,6 @@ export default function CompletedTrail() {
                 min={0}
                 max={10}
                 value={terrain}
-                disabled={!canEdit}
                 onChange={(e) => setTerrain(Number(e.target.value))}
                 style={{ "--fill": `${terrain * 10}%` }}
               />
@@ -997,7 +1203,7 @@ export default function CompletedTrail() {
               <RichTextEditor
                 value={comment}
                 onChange={setComment}
-                disabled={!canEdit}
+                disabled={false}
               />
             </div>
 
@@ -1031,7 +1237,6 @@ export default function CompletedTrail() {
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handlePhotoSelection}
-                  disabled={!canEdit}
                 />
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
                   jpg, png, webp
@@ -1061,13 +1266,11 @@ export default function CompletedTrail() {
                         value={photo.caption || ""}
                         onChange={(e) => updatePhotoCaption(index, e.target.value)}
                         className="photo-caption-input"
-                        disabled={!canEdit}
                       />
 
                       <button
                         onClick={() => removePhoto(index)}
                         className="photo-remove-btn"
-                        disabled={!canEdit}
                       >
                         Remove Photo
                       </button>
@@ -1079,64 +1282,59 @@ export default function CompletedTrail() {
           </section>
         </div>
 
-        <div className="completed-trail-sidebar">
-          <div className="sidebar-actions">
-            {!confirmingDelete ? (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="delete-btn"
-                disabled={!canEdit}
-              >
-                Delete
-              </button>
-            ) : (
-              <>
+        {canEdit && (
+          <div className="completed-trail-sidebar">
+            <div className="sidebar-actions">
+              {!confirmingDelete ? (
                 <button
-                  onClick={deleteRoute}
+                  onClick={() => setConfirmingDelete(true)}
                   className="delete-btn"
-                  style={{ background: "red", color: "white" }}
-                  disabled={!canEdit}
                 >
-                  Confirm
+                  Delete
                 </button>
+              ) : (
+                <>
+                  <button
+                    onClick={deleteRoute}
+                    className="delete-btn"
+                    style={{ background: "red", color: "white" }}
+                  >
+                    Confirm
+                  </button>
 
-                <button
-                  onClick={() => setConfirmingDelete(false)}
-                  disabled={!canEdit}
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
+                  <button onClick={() => setConfirmingDelete(false)}>
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
 
-          <div className="public-toggle-row">
-            <label htmlFor="public-toggle">Public</label>
-            <label className="toggle-switch">
-              <input
-                id="public-toggle"
-                type="checkbox"
-                checked={isPublic}
-                disabled={!canEdit}
-                onChange={async (e) => {
-                  if (!canEdit) return;
-                  const nextValue = e.target.checked;
-                  setIsPublic(nextValue);
-                  await saveChanges({ overridePublic: nextValue });
-                }}
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
+            <div className="public-toggle-row">
+              <label htmlFor="public-toggle">Public</label>
+              <label className="toggle-switch">
+                <input
+                  id="public-toggle"
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={async (e) => {
+                    const nextValue = e.target.checked;
+                    setIsPublic(nextValue);
+                    await saveChanges({ overridePublic: nextValue });
+                  }}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
 
-          <div style={{ marginTop: 16 }}>
-            <button
-              onClick={() => navigator.clipboard?.writeText(window.location.href)}
-            >
-              Copy Link
-            </button>
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={() => navigator.clipboard?.writeText(window.location.href)}
+              >
+                Copy Link
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
