@@ -475,11 +475,13 @@ export default function Library() {
   showSnackbar("Delete this saved route?", "warning", [
     {
       label: "Delete",
+      variant: "danger",
       onClick: () => performDeleteRoute(routeId),
       closeOnClick: true,
     },
     {
       label: "Cancel",
+      variant: "secondary",
       onClick: () => {},
       closeOnClick: true,
     },

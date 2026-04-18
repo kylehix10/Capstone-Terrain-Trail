@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import "./Snackbar.css";
 
 const SnackbarContext = createContext(null);
 
@@ -53,33 +54,40 @@ export function SnackbarProvider({ children }) {
 
       {snackbar.open && (
         <div
-          className={`snackbar snackbar-${snackbar.type}`}
+          className={`snackbar snackbar-${snackbar.type}${
+            snackbar.actions?.length ? " snackbar-has-actions" : ""
+          }`}
           role="status"
           aria-live="polite"
         >
-          <span>{snackbar.message}</span>
+          <div className="snackbar-content">
+            <span className="snackbar-message">{snackbar.message}</span>
 
-          <div className="snackbar-actions">
-            {Array.isArray(snackbar.actions) &&
-              snackbar.actions.map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() => {
-                    if (typeof action.onClick === "function") {
-                      action.onClick();
-                    }
-                    if (action.closeOnClick !== false) {
-                      hideSnackbar();
-                    }
-                  }}
-                >
-                  {action.label}
-                </button>
-              ))}
+            <div className="snackbar-actions">
+              {Array.isArray(snackbar.actions) &&
+                snackbar.actions.map((action) => (
+                  <button
+                    key={action.label}
+                    className={`snackbar-action-btn${
+                      action.variant ? ` snackbar-action-${action.variant}` : ""
+                    }`}
+                    onClick={() => {
+                      if (typeof action.onClick === "function") {
+                        action.onClick();
+                      }
+                      if (action.closeOnClick !== false) {
+                        hideSnackbar();
+                      }
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+            </div>
           </div>
 
-          <button onClick={hideSnackbar} aria-label="Close notification">
-            ×
+          <button className="snackbar-close" onClick={hideSnackbar} aria-label="Close notification">
+            &times;
           </button>
         </div>
       )}

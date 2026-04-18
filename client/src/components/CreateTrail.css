@@ -221,22 +221,6 @@
   justify-content: center;
 }
 
-/* =============================
-   SNACKBAR
-============================= */
-.snackbar {
-  position: fixed;
-  left: 50%;
-  bottom: 30px;
-  transform: translateX(-50%);
-  background: #333;
-  color: #fff;
-  padding: 14px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  z-index: 9999;
-}
-
 @media (max-width: 768px) {
   .create-trail-container {
     padding: 12px;

@@ -1,0 +1,144 @@
+.snackbar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(100%, 380px);
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+}
+
+.snackbar-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.snackbar-message {
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.snackbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.snackbar-action-btn,
+.snackbar-close {
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.snackbar-action-btn {
+  padding: 9px 14px;
+  font-weight: 700;
+}
+
+.snackbar-close {
+  padding: 2px 6px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.snackbar-action-btn:hover,
+.snackbar-close:hover {
+  opacity: 0.9;
+}
+
+.snackbar-success {
+  border-left: 4px solid #2e7d32;
+}
+
+.snackbar-error {
+  border-left: 4px solid #c62828;
+}
+
+.snackbar-warning {
+  border-left: 4px solid #d9822b;
+}
+
+.snackbar-has-actions {
+  padding: 0;
+  overflow: hidden;
+}
+
+.snackbar-has-actions .snackbar-content {
+  gap: 0;
+}
+
+.snackbar-has-actions .snackbar-message {
+  padding: 16px;
+}
+
+.snackbar-has-actions .snackbar-actions {
+  padding: 0 16px 16px;
+}
+
+.snackbar-warning.snackbar-has-actions {
+  max-width: 420px;
+  border: 1px solid rgba(115, 0, 10, 0.18);
+  border-left: none;
+}
+
+.snackbar-warning.snackbar-has-actions .snackbar-message {
+  background: var(--brand);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.snackbar-warning.snackbar-has-actions .snackbar-actions {
+  justify-content: flex-end;
+}
+
+.snackbar-warning .snackbar-action-btn {
+  border-color: rgba(115, 0, 10, 0.2);
+}
+
+.snackbar-warning .snackbar-action-danger,
+.snackbar-warning .snackbar-action-btn:first-child {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+
+.snackbar-warning .snackbar-action-secondary,
+.snackbar-warning .snackbar-action-btn:last-child {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .snackbar {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .snackbar-warning.snackbar-has-actions .snackbar-actions {
+    flex-direction: column-reverse;
+  }
+
+  .snackbar-warning .snackbar-action-btn {
+    width: 100%;
+  }
+}
