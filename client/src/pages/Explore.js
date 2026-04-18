@@ -67,6 +67,150 @@ async function voteOnRoute(routeId, vote) {
   return data.route;
 }
 
+function PhotoCarousel({ photos, title, height = 200 }) {
+  const [index, setIndex] = React.useState(0);
+
+  if (!photos || photos.length === 0) return null;
+
+  const prev = (e) => {
+    e.stopPropagation();
+    setIndex((i) => (i - 1 + photos.length) % photos.length);
+  };
+
+  const next = (e) => {
+    e.stopPropagation();
+    setIndex((i) => (i + 1) % photos.length);
+  };
+
+  const photo = photos[index];
+  const src = photo?.url || photo?.previewUrl || "";
+
+  return (
+    <div style={{
+      marginTop: 10,
+      position: "relative",
+      width: "100%",
+      borderRadius: 10,
+      overflow: "hidden",
+      border: "1px solid var(--border)",
+      background: "var(--surface-2, #f0f0f0)",
+    }}>
+      <img
+        src={src}
+        alt={photo?.caption || `${title || "Trail"} photo ${index + 1}`}
+        style={{
+          width: "100%",
+          height: "auto",
+          display: "block",
+          maxHeight: 500,        // prevents extremely tall portrait images from being huge
+        }}
+      />
+
+      {/* Caption */}
+      {photo?.caption && (
+        <div style={{
+          position: "absolute",
+          bottom: photos.length > 1 ? 32 : 0,
+          left: 0,
+          right: 0,
+          background: "rgba(0,0,0,0.45)",
+          color: "#fff",
+          fontSize: 12,
+          padding: "4px 10px",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}>
+          {photo.caption}
+        </div>
+      )}
+
+      {photos.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            style={{
+              position: "absolute",
+              left: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              width: 28,
+              height: 28,
+              fontSize: 14,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 2,
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            ‹
+          </button>
+
+          <button
+            onClick={next}
+            style={{
+              position: "absolute",
+              right: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              width: 28,
+              height: 28,
+              fontSize: 14,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 2,
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            ›
+          </button>
+
+          <div style={{
+            position: "absolute",
+            bottom: 6,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            gap: 5,
+            zIndex: 2,
+          }}>
+            {photos.map((_, i) => (
+              <div
+                key={i}
+                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+                style={{
+                  width: i === index ? 18 : 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background: i === index ? "#fff" : "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                  transition: "width 0.2s ease",
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Explore() {
   const navigate = useNavigate(); // Hook for navigation
   const mapRefInternal = useRef(null);
@@ -558,21 +702,8 @@ export default function Explore() {
                       </div>
                     </div>
 
-                    {firstPhoto && (
-                      <div style={{ marginTop: 10 }}>
-                        <img
-                          src={firstPhoto}
-                          alt={`${r.title || "Trail"} preview`}
-                          style={{
-                            width: "100%",
-                            maxHeight: 190,
-                            objectFit: "cover",
-                            borderRadius: 10,
-                            border: "1px solid var(--border)",
-                            display: "block",
-                          }}
-                        />
-                      </div>
+                    {routePhotos.length > 0 && (
+                      <PhotoCarousel photos={routePhotos} title={r.title} />
                     )}
 
                     {r.review && (

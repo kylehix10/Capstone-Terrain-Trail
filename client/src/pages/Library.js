@@ -87,6 +87,156 @@ function parseDurationToMinutes(durationText) {
   return Number.isNaN(fallback) ? null : fallback;
 }
 
+function PhotoCarousel({ photos, title, height = 200 }) {
+  const [index, setIndex] = React.useState(0);
+
+  if (!photos || photos.length === 0) return null;
+
+  const prev = (e) => {
+    e.stopPropagation();
+    setIndex((i) => (i - 1 + photos.length) % photos.length);
+  };
+
+  const next = (e) => {
+    e.stopPropagation();
+    setIndex((i) => (i + 1) % photos.length);
+  };
+
+  const photo = photos[index];
+  const src = photo?.url || photo?.previewUrl || "";
+
+  return (
+    <div style={{
+      marginTop: 10,
+      position: "relative",
+      width: "100%",
+      height,
+      borderRadius: 10,
+      overflow: "hidden",
+      border: "1px solid var(--border)",
+      background: "var(--surface-2, #f0f0f0)",
+    }}>
+      <img
+        src={src}
+        alt={photo?.caption || `${title || "Trail"} photo ${index + 1}`}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          display: "block",
+        }}
+      />
+
+      {/* Caption */}
+      {photo?.caption && (
+        <div style={{
+          position: "absolute",
+          bottom: photos.length > 1 ? 32 : 0,
+          left: 0,
+          right: 0,
+          background: "rgba(0,0,0,0.45)",
+          color: "#fff",
+          fontSize: 12,
+          padding: "4px 10px",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}>
+          {photo.caption}
+        </div>
+      )}
+
+      {/* Dot indicators + arrows — only if multiple photos */}
+      {photos.length > 1 && (
+        <>
+          {/* Left arrow */}
+          <button
+            onClick={prev}
+            style={{
+              position: "absolute",
+              left: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              width: 28,
+              height: 28,
+              fontSize: 14,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 2,
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            ‹
+          </button>
+
+          {/* Right arrow */}
+          <button
+            onClick={next}
+            style={{
+              position: "absolute",
+              right: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "50%",
+              width: 28,
+              height: 28,
+              fontSize: 14,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 2,
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            ›
+          </button>
+
+          {/* Dot indicators */}
+          <div style={{
+            position: "absolute",
+            bottom: 6,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            gap: 5,
+            zIndex: 2,
+          }}>
+            {photos.map((_, i) => (
+              <div
+                key={i}
+                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+                style={{
+                  width: i === index ? 18 : 7,
+                  height: 7,
+                  borderRadius: 999,
+                  background: i === index ? "#fff" : "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                  transition: "width 0.2s ease",
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Library() {
   const [isMobileView, setIsMobileView] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -863,8 +1013,10 @@ async function performDeleteRoute(routeId) {
                         alt={photo.caption || `Trail photo ${index + 1}`}
                         style={{
                           width: "100%",
-                          height: 140,
-                          objectFit: "cover",
+                          height: "auto",
+                          maxHeight: 200,
+                          objectFit: "contain",
+                          background: "var(--surface-2, #f5f5f5)",
                           borderRadius: 8,
                           display: "block",
                           marginBottom: 8,
@@ -1082,21 +1234,8 @@ async function performDeleteRoute(routeId) {
                         {route.distance} {route.duration && `| ${route.duration}`}
                       </div>
 
-                      {firstPhoto && (
-                        <div style={{ marginTop: 8 }}>
-                          <img
-                            src={firstPhoto}
-                            alt={`${route.title || "Route"} preview`}
-                            style={{
-                              width: "100%",
-                              height: 120,
-                              objectFit: "cover",
-                              borderRadius: 8,
-                              border: "1px solid var(--border)",
-                              display: "block",
-                            }}
-                          />
-                        </div>
+                      {Array.isArray(route.photos) && route.photos.length > 0 && (
+                        <PhotoCarousel photos={route.photos} title={route.title} height={120} />
                       )}
 
                       {Array.isArray(route.photos) && route.photos.length > 0 && (
