@@ -2,6 +2,10 @@ import React from "react";
 import { Link } from "react-router-dom";
 import "./SplashScreen.css";
 import horseshoeImage from "./horseshoe_now.jpg";
+import explorePageImage from "./explorepage.png";
+import createPageImage from "./create.png";
+import libraryPageImage from "./library.png";
+import votePageImage from "./vote.png";
 
 const teamMembers = [
   {
@@ -132,6 +136,13 @@ function SplashScreen() {
 
           <div className="splash-steps-grid">
             <div className="splash-step-card">
+              <div className="splash-step-image-wrapper">
+                <img
+                  src={explorePageImage}
+                  alt="Explore page screenshot"
+                  className="splash-step-image"
+                />
+              </div>
               <h4>1. Explore routes</h4>
               <p>
                 Search public trails around USC and compare them by location,
@@ -140,6 +151,13 @@ function SplashScreen() {
             </div>
 
             <div className="splash-step-card">
+              <div className="splash-step-image-wrapper">
+                <img
+                  src={createPageImage}
+                  alt="Create page screenshot"
+                  className="splash-step-image"
+                />
+              </div>
               <h4>2. Choose what fits you</h4>
               <p>
                 Use trail details and reviews to find the route that best matches
@@ -148,6 +166,13 @@ function SplashScreen() {
             </div>
 
             <div className="splash-step-card">
+              <div className="splash-step-image-wrapper">
+                <img
+                  src={libraryPageImage}
+                  alt="Library page screenshot"
+                  className="splash-step-image"
+                />
+              </div>
               <h4>3. Create and save</h4>
               <p>
                 Build your own trails, save favorite routes, and keep useful
@@ -156,6 +181,13 @@ function SplashScreen() {
             </div>
 
             <div className="splash-step-card">
+              <div className="splash-step-image-wrapper">
+                <img
+                  src={votePageImage}
+                  alt="Voting and review screenshot"
+                  className="splash-step-image"
+                />
+              </div>
               <h4>4. Help other students</h4>
               <p>
                 Leave reviews and share trails so other users can make better
