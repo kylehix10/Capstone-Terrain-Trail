@@ -108,7 +108,10 @@ function SplashScreen() {
               preload="metadata"
               poster="/img/colaCan.png"
             >
-              <source src="/videos/final-demo-placeholder.mp4" type="video/mp4" />
+              <source
+                src="/videos/final-demo-placeholder.mp4"
+                type="video/mp4"
+              />
               Your browser does not support the video tag.
             </video>
           </div>
@@ -178,50 +181,51 @@ function SplashScreen() {
               <div className="splash-team-card" key={member.name}>
                 <h4>{member.name}</h4>
 
-                <div className="splash-team-links">
-                  {member.linkedin ? (
-                    <a
-                      href={member.linkedin}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="splash-team-link"
-                    >
-                      LinkedIn
-                    </a>
-                  ) : (
-                    <span className="splash-team-link splash-team-link-disabled">
-                      LinkedIn coming soon
-                    </span>
-                  )}
+                {(member.linkedin || member.personalSite) && (
+                  <div className="splash-team-links">
+                    {member.linkedin && (
+                      <a
+                        href={member.linkedin}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="splash-team-link"
+                      >
+                        LinkedIn
+                      </a>
+                    )}
 
-                  {member.personalSite ? (
-                    <a
-                      href={member.personalSite}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="splash-team-link"
-                    >
-                      Personal Site
-                    </a>
-                  ) : (
-                    <span className="splash-team-link splash-team-link-disabled">
-                      Personal site coming soon
-                    </span>
-                  )}
-                </div>
+                    {member.personalSite && (
+                      <a
+                        href={member.personalSite}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="splash-team-link"
+                      >
+                        Personal Site
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <div className="splash-repo-row">
-            <a
-              href="https://github.com/SCCapstone/Capstone-Terrain-Trail"
-              target="_blank"
-              rel="noreferrer"
-              className="splash-button splash-button-tertiary"
-            >
-              View GitHub Repo
-            </a>
+          <div className="splash-repo-section">
+            <p className="splash-repo-description">
+              This link goes to the project repository for Cola Trails, where
+              you can view the source code and development work for the app.
+            </p>
+
+            <div className="splash-repo-row">
+              <a
+                href="https://github.com/SCCapstone/Capstone-Terrain-Trail"
+                target="_blank"
+                rel="noreferrer"
+                className="splash-button splash-button-tertiary"
+              >
+                View GitHub Repo
+              </a>
+            </div>
           </div>
         </section>
       </main>
