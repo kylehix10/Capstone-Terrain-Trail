@@ -4,7 +4,25 @@
 }
 
 .splash-header {
+  position: relative;
   padding: 22px 16px 28px;
+  min-height: 120px;
+  box-sizing: border-box;
+}
+
+.splash-logo {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+  background: white;
+  border: 3px solid #111;
+  border-radius: 50%;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .splash-header-inner {
@@ -159,6 +177,21 @@
 }
 
 @media (max-width: 700px) {
+  .splash-header {
+    padding-top: 24px;
+    padding-bottom: 20px;
+    min-height: 150px;
+  }
+
+  .splash-logo {
+    position: static;
+    transform: none;
+    display: block;
+    margin: 0 auto 14px;
+    width: 76px;
+    height: 76px;
+  }
+
   .splash-header h1 {
     font-size: 2.3rem;
   }
