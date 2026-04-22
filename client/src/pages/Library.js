@@ -53,6 +53,31 @@ function travelModeFromType(type) {
   return window.google.maps.TravelMode.WALKING;
 }
 
+function geocodeAddress(address) {
+  if (!window.google?.maps?.Geocoder || !address?.trim()) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    new window.google.maps.Geocoder().geocode(
+      { address: address.trim() },
+      (results, status) => {
+        resolve(status === "OK" && Array.isArray(results) && results.length > 0);
+      }
+    );
+  });
+}
+
+async function getInvalidAddressLabel(route) {
+  const originValid = await geocodeAddress(route?.origin);
+  if (!originValid) return "Origin";
+
+  const destinationValid = await geocodeAddress(route?.destination);
+  if (!destinationValid) return "Destination";
+
+  return null;
+}
+
 
 function parseDistanceToMiles(distanceText) {
   if (!distanceText) return null;
@@ -249,6 +274,8 @@ export default function Library() {
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [loadingRouteId, setLoadingRouteId] = useState(null);
   const [editingRouteId, setEditingRouteId] = useState(null);
+  const editRouteRecalcTimeoutRef = useRef(null);
+  const editRouteRecalcRequestRef = useRef(0);
   const [editForm, setEditForm] = useState({
     title: "",
     origin: "",
@@ -257,6 +284,7 @@ export default function Library() {
     duration: "",
     type: "",
     isUSC: false,
+    isPublic: false,
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -326,6 +354,68 @@ export default function Library() {
     mediaQuery.addListener(updateIsMobileView);
     return () => mediaQuery.removeListener(updateIsMobileView);
   }, []);
+
+  useEffect(() => {
+    if (!editingRouteId || !window.google?.maps) return undefined;
+
+    const existingRoute = savedRoutes.find((route) => route.id === editingRouteId);
+    if (!existingRoute) return undefined;
+
+    const origin = editForm.origin.trim();
+    const destination = editForm.destination.trim();
+    const type = normalizeRouteType(editForm.type);
+    const routeChanged =
+      origin !== (existingRoute.origin || "").trim() ||
+      destination !== (existingRoute.destination || "").trim() ||
+      type !== normalizeRouteType(existingRoute.type);
+
+    if (!routeChanged || !origin || !destination) {
+      return undefined;
+    }
+
+    const requestId = editRouteRecalcRequestRef.current + 1;
+    editRouteRecalcRequestRef.current = requestId;
+
+    editRouteRecalcTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await new window.google.maps.DirectionsService().route({
+          origin,
+          destination,
+          travelMode: travelModeFromType(type),
+          unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+        });
+        const leg = result?.routes?.[0]?.legs?.[0];
+
+        if (!leg || editRouteRecalcRequestRef.current !== requestId) return;
+
+        setEditForm((prev) => {
+          if (
+            prev.origin.trim() !== origin ||
+            prev.destination.trim() !== destination ||
+            normalizeRouteType(prev.type) !== type
+          ) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            distance: leg.distance?.text || "",
+            duration: leg.duration?.text || "",
+          };
+        });
+      } catch (err) {
+        if (editRouteRecalcRequestRef.current !== requestId) return;
+        console.warn("Could not recalculate edited route stats:", err);
+      }
+    }, 400);
+
+    return () => {
+      if (editRouteRecalcTimeoutRef.current) {
+        clearTimeout(editRouteRecalcTimeoutRef.current);
+        editRouteRecalcTimeoutRef.current = null;
+      }
+    };
+  }, [editForm.destination, editForm.origin, editForm.type, editingRouteId, savedRoutes]);
  
   const routeTypeOptions = useMemo(
     () => Array.from(new Set(savedRoutes.map((r) => r.type).filter(Boolean))),
@@ -406,6 +496,11 @@ export default function Library() {
   async function loadRoute(route) {
   if (!window.google?.maps) return;
 
+    if (route?.id) {
+      setSelectedRouteId(route.id);
+      setLoadingRouteId(route.id);
+    }
+
     setLoadedReview(route.review || null);
   setLoadedHazards(Array.isArray(route.hazards) ? route.hazards : []);
   setLoadedPhotos(Array.isArray(route.photos) ? route.photos : []);
@@ -460,7 +555,13 @@ export default function Library() {
     mapRef.current?.fitBounds(result.routes[0].bounds);
   } catch (err) {
     console.error("Failed to load route:", err);
-    showSnackbar("Could not load route.", "error");
+    const invalidAddressLabel = await getInvalidAddressLabel(route);
+    showSnackbar(
+      invalidAddressLabel
+        ? `${invalidAddressLabel}: Not a valid address`
+        : "Could not load route.",
+      "error"
+    );
     setLoadedReview(null);
     setLoadedHazards([]);
     setLoadedPath([]);
@@ -531,6 +632,7 @@ async function performDeleteRoute(routeId) {
       duration: route.duration || "",
       type: route.type || "",
       isUSC: Array.isArray(route.tags) && route.tags.includes("USC"),
+      isPublic: Boolean(route.public),
     });
   }
 
@@ -544,6 +646,7 @@ async function performDeleteRoute(routeId) {
       duration: "",
       type: "👣",
       isUSC: false,
+      isPublic: false,
     });
   }
 
@@ -554,11 +657,21 @@ async function performDeleteRoute(routeId) {
   async function saveEditedRoute(routeId) {
   const origin = editForm.origin.trim();
   const destination = editForm.destination.trim();
+  const existingRoute = savedRoutes.find((route) => route.id === routeId);
 
   if (!origin || !destination) {
     showSnackbar("Origin and destination are required.", "warning");
     return;
   }
+
+  if (!existingRoute) {
+    showSnackbar("Could not find that route to update.", "error");
+    return;
+  }
+
+  const endpointsChanged =
+    origin !== (existingRoute.origin || "") ||
+    destination !== (existingRoute.destination || "");
 
   const updatedFields = {
     title: editForm.title.trim() || "Untitled Route",
@@ -568,28 +681,49 @@ async function performDeleteRoute(routeId) {
     duration: editForm.duration.trim(),
     type: normalizeRouteType(editForm.type),
     tags: editForm.isUSC ? ["USC"] : [],
+    public: Boolean(editForm.isPublic),
+  };
+
+  const payload = {
+    ...existingRoute,
+    ...updatedFields,
+    encodedPolyline: endpointsChanged ? null : existingRoute.encodedPolyline ?? null,
+    bounds: endpointsChanged ? undefined : existingRoute.bounds,
   };
 
   try {
     const res = await fetch(`${API_BASE}/api/routes/${routeId}`, {
       method: "PUT",
       headers: authHeaders(),
-      body: JSON.stringify(updatedFields),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
     
     const data = await res.json();
+    const updatedRoute = {
+      ...existingRoute,
+      ...payload,
+      ...(data.route || {}),
+      id: data.route?.id || existingRoute.id,
+      type: normalizeRouteType(data.route?.type || payload.type),
+      photos: Array.isArray(data.route?.photos)
+        ? data.route.photos
+        : Array.isArray(existingRoute.photos)
+          ? existingRoute.photos
+          : [],
+      hazards: Array.isArray(data.route?.hazards)
+        ? data.route.hazards
+        : Array.isArray(existingRoute.hazards)
+          ? existingRoute.hazards
+          : [],
+    };
 
     setSavedRoutes((prev) =>
       prev.map((r) =>
         r.id === routeId
-          ? {
-            ...data.route,
-            type: normalizeRouteType(data.route.type),
-            photos: Array.isArray(data.route.photos) ? data.route.photos : [],
-          }
+          ? updatedRoute
         : r
       )
     );
@@ -598,7 +732,7 @@ async function performDeleteRoute(routeId) {
     showSnackbar("Route updated successfully!", "success");
 
     if (selectedRouteId === routeId) {
-      await loadRoute(data.route);
+      await loadRoute(updatedRoute);
     }
 
   } catch (err) {
@@ -1166,16 +1300,28 @@ async function performDeleteRoute(routeId) {
                         <input
                           type="text"
                           value={editForm.distance}
-                          onChange={(e) => handleEditFieldChange("distance", e.target.value)}
                           placeholder="Distance (e.g. 1.2 mi)"
-                          style={{ padding: 6, fontSize: 13 }}
+                          readOnly
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--muted)",
+                            cursor: "not-allowed",
+                          }}
                         />
                         <input
                           type="text"
                           value={editForm.duration}
-                          onChange={(e) => handleEditFieldChange("duration", e.target.value)}
                           placeholder="Duration (e.g. 15 mins)"
-                          style={{ padding: 6, fontSize: 13 }}
+                          readOnly
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--muted)",
+                            cursor: "not-allowed",
+                          }}
                         />
                       </div>
 
@@ -1195,6 +1341,24 @@ async function performDeleteRoute(routeId) {
                           }
                         />
                         at USC
+                      </label>
+
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          marginTop: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editForm.isPublic}
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, isPublic: e.target.checked }))
+                          }
+                        />
+                        Public route
                       </label>
 
                       <div style={routeEditActionStyle}>
