@@ -6,14 +6,21 @@ import horseshoeImage from "./horseshoe_now.jpg";
 function SplashScreen() {
   return (
     <div className="splash-page">
-      <div className="splash-overlay">
+      <header className="app-header splash-header">
+        <div className="splash-header-inner">
+          <h1>Cola Trails</h1>
+          <p>Explore, record, review, and share trails around USC</p>
+        </div>
+      </header>
+
+      <main className="splash-main">
         <div className="splash-card">
           <div className="splash-left">
             <p className="splash-tag">Welcome to Terrain Trail</p>
 
-            <h1 className="splash-title">
+            <h2 className="splash-title">
               Discover trails that match your route, terrain, and style.
-            </h1>
+            </h2>
 
             <p className="splash-description">
               Terrain Trail helps users explore, create, save, and review trails
@@ -34,10 +41,6 @@ function SplashScreen() {
                 Sign Up
               </Link>
             </div>
-
-            <Link to="/app/explore" className="splash-guest-link">
-              Continue as Guest
-            </Link>
           </div>
 
           <div className="splash-right">
@@ -48,7 +51,7 @@ function SplashScreen() {
             />
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
