@@ -7,6 +7,12 @@ function SplashScreen() {
   return (
     <div className="splash-page">
       <header className="app-header splash-header">
+        <img
+          src="/img/colaCan.png"
+          alt="Cola Trails logo"
+          className="splash-logo"
+        />
+
         <div className="splash-header-inner">
           <h1>Cola Trails</h1>
           <p>Explore, record, review, and share trails around USC</p>
@@ -16,14 +22,14 @@ function SplashScreen() {
       <main className="splash-main">
         <div className="splash-card">
           <div className="splash-left">
-            <p className="splash-tag">Welcome to Terrain Trail</p>
+            <p className="splash-tag">Welcome to Cola Trails</p>
 
             <h2 className="splash-title">
               Discover trails that match your route, terrain, and style.
             </h2>
 
             <p className="splash-description">
-              Terrain Trail helps users explore, create, save, and review trails
+              Cola Trail helps users explore, create, save, and review trails
               around campus. Find routes based on terrain and accessibility,
               share public trails with others, and keep your favorite paths all
               in one place.
