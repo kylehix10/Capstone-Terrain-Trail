@@ -570,6 +570,20 @@ setIsOwner(ownerMatch);
   }, [route, loadDirections]);
 
   useEffect(() => {
+  if (!mapRef.current || !window.google || !route) return;
+
+  const isRecordedRoute = Array.isArray(route.path) && route.path.length > 1;
+
+  if (isRecordedRoute) {
+    const bounds = new window.google.maps.LatLngBounds();
+
+    route.path.forEach((p) => bounds.extend(p));
+
+    mapRef.current.fitBounds(bounds); // ✅ THIS FIXES YOUR ISSUE
+  }
+}, [route]);
+
+  useEffect(() => {
     if (!route || loading || !isOwner || isHydratingRef.current) return;
 
     const currentSnapshot = buildReviewSnapshot({
@@ -863,7 +877,7 @@ setIsOwner(ownerMatch);
             <div style={{ position: "relative", marginBottom: 12 }}>
               <GoogleMap
                 mapContainerStyle={MAP_CONTAINER}
-                center={DEFAULT_CENTER}
+                center={route?.path?.[0] || DEFAULT_CENTER}
                 zoom={14}
                 onLoad={(m) => {
                   mapRef.current = m;
@@ -1049,7 +1063,7 @@ setIsOwner(ownerMatch);
           <div style={{ position: "relative", marginBottom: 12 }}>
             <GoogleMap
               mapContainerStyle={MAP_CONTAINER}
-              center={DEFAULT_CENTER}
+              center={route?.path?.[0] || DEFAULT_CENTER}
               zoom={14}
               onLoad={(m) => {
                 mapRef.current = m;

@@ -364,6 +364,12 @@ export default function CreateTrail() {
     }
   }, [map, routeType]);
 
+//   useEffect(() => {
+//   if (trackedPath.length > 1) {
+//     fitMapToPath(trackedPath);
+//   }
+// }, [trackedPath]);
+
   useEffect(() => {
     return () => {
       if (watchIdRef.current != null) {
@@ -515,6 +521,16 @@ export default function CreateTrail() {
     );
   }
 
+
+  function fitMapToPath(path) {
+  if (!map || !window.google || !path?.length) return;
+
+  const bounds = new window.google.maps.LatLngBounds();
+  path.forEach((p) => bounds.extend(p));
+
+  map.fitBounds(bounds);
+}
+
   function startElapsedTimer() {
     if (elapsedIntervalRef.current) return;
     elapsedIntervalRef.current = setInterval(() => {
@@ -533,38 +549,54 @@ export default function CreateTrail() {
   }
 
   function beginTracking() {
-    if (!navigator.geolocation) {
-      showSnackbar("Geolocation not supported by this browser.", "error");
-      return;
-    }
-
-    setTrackedPath([]);
-    setTrackedDistanceMeters(0);
-    baseElapsedRef.current = 0;
-    setElapsedMsDisplay(0);
-
-    startTsRef.current = Date.now();
-    setIsPaused(false);
-    setIsTracking(true);
-    startElapsedTimer();
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        if (isPaused) return;
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setTrackedPath((prev) => {
-          const next = [...prev, coords];
-          if (prev.length > 0) {
-            const d = haversineDistanceMeters(prev[prev.length - 1], coords);
-            setTrackedDistanceMeters((prevD) => prevD + d);
-          }
-          return next;
-        });
-      },
-      (err) => console.warn("geolocation watch error", err),
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
-    );
+  if (!navigator.geolocation) {
+    showSnackbar("Geolocation not supported by this browser.", "error");
+    return;
   }
+
+  setTrackedPath([]);
+  setTrackedDistanceMeters(0);
+  baseElapsedRef.current = 0;
+  setElapsedMsDisplay(0);
+
+  startTsRef.current = Date.now();
+  setIsPaused(false);
+  setIsTracking(true);
+  startElapsedTimer();
+
+  watchIdRef.current = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (isPaused) return;
+
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      };
+
+      // ✅ Center map on user WITHOUT changing zoom
+      if (map) {
+        map.panTo(coords);
+      }
+
+      setTrackedPath((prev) => {
+        const next = [...prev, coords];
+
+        if (prev.length > 0) {
+          const d = haversineDistanceMeters(prev[prev.length - 1], coords);
+          setTrackedDistanceMeters((prevD) => prevD + d);
+        }
+
+        return next;
+      });
+    },
+    (err) => console.warn("geolocation watch error", err),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 5000,
+    }
+  );
+}
 
   function pauseTracking() {
     if (!isTracking || isPaused) return;
@@ -965,7 +997,9 @@ export default function CreateTrail() {
               <button
                 key={opt.key}
                 title={opt.label}
+                disabled={isTracking}
                 onClick={async () => {
+                  if (isTracking) return;
                   setRouteType(opt.key);
                   const originVal = originInputRef.current?.value?.trim();
                   const destVal = destInputRef.current?.value?.trim();
@@ -1089,69 +1123,70 @@ export default function CreateTrail() {
               {!isTracking && (
                 <>
                   <button
-                    className="map-btn"
-                    onClick={async () => {
-                      setIsManualRecording(false);
+  className="map-btn"
+  onClick={async () => {
+    const originVal = originInputRef.current?.value?.trim();
 
-                      const originVal = originInputRef.current?.value?.trim();
-                      const destVal = destInputRef.current?.value?.trim();
-                      const shouldCaptureLiveAddresses = !originVal || !destVal;
+    // 🚫 BLOCK if no origin
+    if (!originVal) {
+      showSnackbar("Enter an origin before starting a route.", "warning");
+      return;
+    }
 
-                      trackingSessionRef.current = {
-                        useLiveAddresses: false,
-                        startAddress: "",
-                        startPoint: null,
-                      };
+    setIsTracking(true);
+    setIsManualRecording(false);
 
-                      try {
-                        if (shouldCaptureLiveAddresses) {
-                          await prepareLiveAddressTracking();
-                          beginTracking();
-                          return;
-                        }
+    try {
+      const { exactPoint } = await getUserLocation();
 
-                        if (!directionsResult && originVal && destVal) {
-                          await calculateRoute();
-                        }
-                        beginTracking();
-                      } catch (err) {
-                        console.error("start tracking setup error:", err);
-                        showSnackbar(
-                          "Could not get your live location to start this route.",
-                          "error"
-                        );
-                      }
-                    }}
-                  >
-                    Start
-                  </button>
+      if (map) {
+        map.panTo(exactPoint);
+        map.setZoom(16);
+      }
+
+      setOriginPosition(exactPoint);
+    } catch (e) {
+      console.warn("Could not get user location:", e);
+    }
+
+    const destVal = destInputRef.current?.value?.trim();
+
+    if (!directionsResult && originVal && destVal) {
+      calculateRoute().then(beginTracking).catch(beginTracking);
+    } else {
+      beginTracking();
+    }
+  }}
+>
+  Start
+</button>
 
                   <button
-                    className="map-btn"
-                    onClick={() => {
-                      setIsManualRecording(true);
-                      trackingSessionRef.current = {
-                        useLiveAddresses: false,
-                        startAddress: "",
-                        startPoint: null,
-                      };
+  className="map-btn"
+  onClick={() => {
+    const originVal = originInputRef.current?.value?.trim();
 
-                      const originVal = originInputRef.current?.value?.trim();
-                      if (!originVal) {
-                        setLocationMessage("Please enter a start location before recording.");
-                        return;
-                      }
-                      setLocationMessage("");
-                      setDirectionsResult(null);
-                      setDistanceText("");
-                      setDurationText("");
-                      setRouteOptions([]);
-                      setSelectedRouteIndex(0);
-                      beginTracking();
-                    }}
-                  >
-                    Record New Route
-                  </button>
+    // 🚫 HARD BLOCK if no origin
+    if (!originVal) {
+      showSnackbar("Enter an origin before recording a route.", "warning");
+      return;
+    }
+
+    setIsManualRecording(true);
+
+    // clear any previous route UI
+    setLocationMessage("");
+    setDirectionsResult(null);
+    setDistanceText("");
+    setDurationText("");
+    setRouteOptions([]);
+    setSelectedRouteIndex(0);
+
+    beginTracking();
+  }}
+>
+  Record New Route
+</button>
                 </>
               )}
 
