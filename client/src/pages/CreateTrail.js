@@ -911,7 +911,9 @@ export default function CreateTrail() {
               <button
                 key={opt.key}
                 title={opt.label}
+                disabled={isTracking}
                 onClick={async () => {
+                  if (isTracking) return;
                   setRouteType(opt.key);
                   const originVal = originInputRef.current?.value?.trim();
                   const destVal = destInputRef.current?.value?.trim();
@@ -1037,6 +1039,7 @@ export default function CreateTrail() {
                   <button
                     className="map-btn"
                     onClick={() => {
+                      setIsTracking(true);
                       setIsManualRecording(false);
 
                       const originVal = originInputRef.current?.value?.trim();
