@@ -1069,58 +1069,70 @@ export default function CreateTrail() {
               {!isTracking && (
                 <>
                   <button
-                    className="map-btn"
-                    onClick={async () => {
-  setIsTracking(true);
-  setIsManualRecording(false);
+  className="map-btn"
+  onClick={async () => {
+    const originVal = originInputRef.current?.value?.trim();
 
-  try {
-    const { exactPoint } = await getUserLocation();
-
-    if (map) {
-      map.panTo(exactPoint);
-      map.setZoom(16);
+    // 🚫 BLOCK if no origin
+    if (!originVal) {
+      showSnackbar("Enter an origin before starting a route.", "warning");
+      return;
     }
 
-    setOriginPosition(exactPoint);
-  } catch (e) {
-    console.warn("Could not get user location:", e);
-  }
+    setIsTracking(true);
+    setIsManualRecording(false);
 
-  const originVal = originInputRef.current?.value?.trim();
-  const destVal = destInputRef.current?.value?.trim();
+    try {
+      const { exactPoint } = await getUserLocation();
 
-  if (!directionsResult && originVal && destVal) {
-    calculateRoute().then(beginTracking).catch(beginTracking);
-  } else {
-    beginTracking();
-  }
-}}
-                  >
-                    Start
-                  </button>
+      if (map) {
+        map.panTo(exactPoint);
+        map.setZoom(16);
+      }
+
+      setOriginPosition(exactPoint);
+    } catch (e) {
+      console.warn("Could not get user location:", e);
+    }
+
+    const destVal = destInputRef.current?.value?.trim();
+
+    if (!directionsResult && originVal && destVal) {
+      calculateRoute().then(beginTracking).catch(beginTracking);
+    } else {
+      beginTracking();
+    }
+  }}
+>
+  Start
+</button>
 
                   <button
-                    className="map-btn"
-                    onClick={() => {
-                      setIsManualRecording(true);
+  className="map-btn"
+  onClick={() => {
+    const originVal = originInputRef.current?.value?.trim();
 
-                      const originVal = originInputRef.current?.value?.trim();
-                      if (!originVal) {
-                        setLocationMessage("Please enter a start location before recording.");
-                        return;
-                      }
-                      setLocationMessage("");
-                      setDirectionsResult(null);
-                      setDistanceText("");
-                      setDurationText("");
-                      setRouteOptions([]);
-                      setSelectedRouteIndex(0);
-                      beginTracking();
-                    }}
-                  >
-                    Record New Route
-                  </button>
+    // 🚫 HARD BLOCK if no origin
+    if (!originVal) {
+      showSnackbar("Enter an origin before recording a route.", "warning");
+      return;
+    }
+
+    setIsManualRecording(true);
+
+    // clear any previous route UI
+    setLocationMessage("");
+    setDirectionsResult(null);
+    setDistanceText("");
+    setDurationText("");
+    setRouteOptions([]);
+    setSelectedRouteIndex(0);
+
+    beginTracking();
+  }}
+>
+  Record New Route
+</button>
                 </>
               )}
 
