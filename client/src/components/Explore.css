@@ -222,14 +222,34 @@ button {
 .route-comment-preview {
   margin-top: 6px;
   font-size: 0.9rem;
-
-  max-height: 80px;        /* 👈 controls height */
-  overflow: hidden;
-
-  display: -webkit-box;
-  -webkit-line-clamp: 3;   /* 👈 number of lines shown */
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-
   line-height: 1.4;
+  overflow: hidden;
+  max-height: 80px;
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  transition: max-height 0.3s ease, mask-image 0.3s ease;
 }
+
+.route-comment-preview.expanded {
+  max-height: 1000px;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.read-more-btn {
+  background: none !important;
+  border: none !important;
+  color: #0b63d6 !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  padding: 2px 0 !important;
+  margin-top: 4px !important;
+  display: inline-block;
+}
+
+.read-more-btn:hover {
+  color: #084bb5 !important;
+  background: none !important;
+}
+

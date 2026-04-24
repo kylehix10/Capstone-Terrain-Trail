@@ -257,6 +257,7 @@ export default function Explore() {
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const { darkMode } = useTheme();
+  const [expandedReviews, setExpandedReviews] = useState({});
 
   const onMapLoad = useCallback((map) => {
     mapRefInternal.current = map;
@@ -812,30 +813,37 @@ export default function Explore() {
                         className="route-review"
                         style={{
                           marginTop: 10,
-                          borderTop: "1px solid #eee",
+                          borderTop: "1px solid var(--border)",
                           paddingTop: 8,
                         }}
                       >
                         <div style={{ color: "#f39c12", fontWeight: "bold" }}>
                           {"★".repeat(r.review.stars)}
                           {"☆".repeat(5 - r.review.stars)}
-                          <span
-                            style={{
-                              color: "var(--muted)",
-                              marginLeft: 6,
-                              fontWeight: "normal",
-                            }}
-                          >
+                          <span style={{ color: "var(--muted)", marginLeft: 6, fontWeight: "normal" }}>
                             ({r.review.stars}/5)
                           </span>
                         </div>
 
                         {r.review.comment && (
-                              <div
-                            className="route-comment-preview"
-                            dangerouslySetInnerHTML={{ __html: r.review.comment }}
-                          />
-                            )}
+                          <>
+                            <div
+                              className={`route-comment-preview ${expandedReviews[r.id] ? "expanded" : ""}`}
+                              dangerouslySetInnerHTML={{ __html: r.review.comment }}
+                            />
+                            <button
+                              className="read-more-btn"
+                              onClick={() =>
+                                setExpandedReviews((prev) => ({
+                                  ...prev,
+                                  [r.id]: !prev[r.id],
+                                }))
+                              }
+                            >
+                              {expandedReviews[r.id] ? "Show less ▲" : "Read more ▼"}
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
