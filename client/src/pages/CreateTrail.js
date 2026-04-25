@@ -751,20 +751,28 @@ export default function CreateTrail() {
       );
 
       destAutocompleteRef.current.addListener("place_changed", async () => {
-        const place = destAutocompleteRef.current.getPlace();
-        const destVal = place?.formatted_address || destInputRef.current?.value?.trim();
+  const place = destAutocompleteRef.current.getPlace();
+  const destVal = place?.formatted_address || destInputRef.current?.value?.trim();
 
-        if (!destVal) return;
+  if (!destVal) return;
 
-        setRouteType("👣");
+  setRouteType("👣");
 
-        try {
-          const exactPoint = await applyCurrentLocationToOrigin();
-          await calculateRoute("👣", exactPoint);
-        } catch (err) {
-          console.warn("Could not get live location before routing:", err);
-        }
-      });
+  const originVal = originInputRef.current?.value?.trim();
+
+  try {
+    // ✅ ONLY use location if origin is empty
+    if (!originVal) {
+      const exactPoint = await applyCurrentLocationToOrigin();
+      await calculateRoute("👣", exactPoint);
+    } else {
+      // ✅ Respect user input
+      await calculateRoute("👣");
+    }
+  } catch (err) {
+    console.warn("Could not get live location before routing:", err);
+  }
+});
     }
   }, []);
 
