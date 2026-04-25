@@ -1,4 +1,4 @@
-body {
+/* body {
   margin: 0;
   font-family: Arial, sans-serif;
   background: #f9fafc;
@@ -40,4 +40,48 @@ div {
 }
 
 
+ */
+
+ /* ============================================================
+   App.css
+   NOTE: Global body/html resets live in index.css — do NOT
+   duplicate them here. Duplicating background/font-family causes
+   the dark-mode CSS variables to be overridden by static values.
+   ============================================================ */
+ 
+/* Legacy app header (used before Layout.css took over) */
+.app-header {
+  background-color: #73000a;
+  color: white;
+  text-align: center;
+}
+ 
+.main {
+  padding: 20px;
+}
+ 
+/* ── REMOVED: div { justify-content: center } ────────────────
+   This global rule was forcing justify-content on EVERY div in
+   the app including .auth-page, .auth-main, and Layout wrappers.
+   It caused the auth pages to render as a small centered box
+   instead of filling the viewport — the root cause of #173.
+   Removed entirely; flex layout is now controlled per-component.
+─────────────────────────────────────────────────────────────── */
+ 
+.main-nav .nav-link {
+  text-decoration: none;
+  color: #333;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+ 
+.main-nav .nav-link:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+ 
+.main-nav .nav-link.active {
+  font-weight: 700;
+  text-decoration: underline;
+  color: #111;
+}
 

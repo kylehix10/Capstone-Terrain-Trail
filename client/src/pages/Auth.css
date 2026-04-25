@@ -5,6 +5,7 @@
   flex-direction: column;
   background: var(--bg);
   color: var(--text);
+  overflow-x: hidden;
 }
 
 .auth-header {
@@ -49,12 +50,14 @@
 
 .auth-card {
   width: 32%;
+  min-width: 300px;
   background: var(--surface);
   border-radius: 12px;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   padding: 24px;
   margin-top: 30px;
+  box-sizing: border-box;
 }
 
 .auth-card-title {
@@ -71,7 +74,7 @@
   gap: 12px;
 }
 
-/* ---------- Inputs / Buttons ---------- */
+/* ---------- Inputs ---------- */
 .auth-input {
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -80,12 +83,17 @@
   outline: none;
   background: var(--surface-2);
   color: var(--text);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .auth-input::placeholder {
   color: var(--muted);
 }
 
+/* ---------- Button rows ---------- */
+
+/* Password field + Show/Hide button row */
 .auth-row {
   display: flex;
   gap: 8px;
@@ -99,10 +107,13 @@
   margin-top: 6px;
 }
 
+/* Allows flex children to shrink without overflowing */
 .auth-grow {
   flex: 1;
+  min-width: 0;
 }
 
+/* ---------- Buttons — base ---------- */
 .auth-btn {
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -113,11 +124,13 @@
   box-sizing: border-box;
 }
 
+/* Show / Hide password toggle */
 .auth-btn--show {
   padding: 0 12px;
   font-size: 12px;
   white-space: nowrap;
   height: 44px;
+  flex-shrink: 0;
 }
 
 .auth-btn--primary {
@@ -150,7 +163,7 @@
   cursor: not-allowed;
 }
 
-
+/* Inline "Sign Up" / "Log In" link-style button */
 .auth-btn--link {
   margin-left: 8px;
   padding: 6px 10px;
@@ -169,7 +182,6 @@
   outline-offset: 2px;
 }
 
-/* Optional: make hover feel nicer */
 .auth-btn:hover {
   filter: brightness(0.98);
 }
@@ -198,30 +210,84 @@
   font-weight: 700;
 }
 
-/* ---------- Mobile / Small screens ---------- */
+  /* TABLET — 900px and below */
+
 @media (max-width: 900px) {
   .auth-header {
     padding: 18px;
   }
 
   .auth-header-title {
-    font-size: 34px;
+    font-size: 28px;
+    letter-spacing: 1px;
   }
 
+  /*  stack column, no padding, card touches edges */
   .auth-main {
+    flex: 1;
     flex-direction: column;
-    padding: 18px;
-    gap: 18px;
+    padding: 0;
+    gap: 0;
     align-items: stretch;
+    justify-content: flex-start;
   }
 
-  /* Hide image to speed up mobile + keep form above fold */
   .auth-image-wrap {
-    display: none;
+    display: none !important;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   .auth-card {
+    flex: 1;
     width: 100%;
-    margin-top: 0;
+    min-width: unset;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-header {
+    padding: 12px 16px;
+  }
+
+  /* 48px title caused horizontal overflow on phones */
+  .auth-header-title {
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
+
+  .auth-card {
+    padding: 20px 16px;
+  }
+
+  .auth-card-title {
+    font-size: 20px;
+  }
+
+  .auth-input {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  /* Stack Sign Up + Log In buttons vertically on very small screens
+     so they always have a comfortable tap target width */
+  .auth-row--actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .auth-btn--primary,
+  .auth-btn--secondary {
+    width: 100%;
+    text-align: center;
   }
 }

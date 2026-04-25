@@ -1,4 +1,4 @@
-/* GLOBAL THEME TOKENS */
+/* ------------ Light mode tokens ----------- */
 :root {
   --bg: #f9fafc;
   --text: #222;
@@ -6,11 +6,11 @@
   --surface-2: #fafafa;
   --border: #e6e6e6;
   --muted: #666;
-
   --brand: #73000a;
   --brand-hover: #8b0010;
 }
-
+ 
+/* ------------ Dark mode tokens ------------ */
 html.dark {
   --bg: #111;
   --text: #eee;
@@ -18,17 +18,30 @@ html.dark {
   --surface-2: #141414;
   --border: #2a2a2a;
   --muted: #bdbdbd;
-
-  --brand: #73000a;       /* keep garnet */
+  --brand: #73000a;        /* keep garnet in dark mode */
   --brand-hover: #8b0010;
 }
-
-/* BASE GLOBALS */
+ 
+/* ------------ Base resets ----------------- */
 html, body {
   margin: 0;
+  padding: 0;
+  height: 100%;
   font-family: Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  overflow-x: hidden;  
 }
-
-a { color: inherit; } 
+ 
+/* FIX #173: #root must be full height so flex children like
+   .auth-page can stretch to fill the viewport properly */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+ 
+a {
+  color: inherit;
+}
+ 
