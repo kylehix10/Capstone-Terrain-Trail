@@ -2,13 +2,23 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
-import Library from "./Library";
+import Library from "../pages/Library";
 import { SnackbarProvider } from "../components/Snackbar";
 
-const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+jest.mock(
+  "react-router-dom",
+  () => ({
+    useNavigate: () => jest.fn(),
+    useLocation: () => ({ state: null }),
+  }),
+  { virtual: true }
+);
 
-let mockLoaderState = { isLoaded: true, loadError: null };
-const mockRoute = jest.fn();
+jest.mock("../theme/ThemeContext.js", () => ({
+  useTheme: () => ({ darkMode: false }),
+}));
+
+let mockRoute = jest.fn();
 const mockMapInstance = {
   fitBounds: jest.fn(),
   panTo: jest.fn(),
@@ -18,7 +28,6 @@ const mockMapInstance = {
 jest.mock("@react-google-maps/api", () => {
   const React = require("react");
   return {
-    useJsApiLoader: () => mockLoaderState,
     GoogleMap: ({ children, onLoad }) => {
       React.useEffect(() => {
         onLoad?.(mockMapInstance);
@@ -26,10 +35,17 @@ jest.mock("@react-google-maps/api", () => {
       return <div data-testid="google-map">{children}</div>;
     },
     DirectionsRenderer: () => <div data-testid="directions-renderer" />,
+    Marker: () => <div data-testid="map-marker" />,
+    Polyline: () => <div data-testid="map-polyline" />,
   };
 });
 
-function buildDirectionsResult({ distance = "1 mi", duration = "10 mins", lat = 33.9, lng = -81.0 } = {}) {
+function buildDirectionsResult({
+  distance = "1 mi",
+  duration = "10 mins",
+  lat = 33.9,
+  lng = -81.0,
+} = {}) {
   return {
     routes: [
       {
@@ -49,8 +65,12 @@ function buildDirectionsResult({ distance = "1 mi", duration = "10 mins", lat = 
   };
 }
 
-function seedRoutes(routes) {
-  window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
+function createJsonResponse(data, { ok = true, status = 200 } = {}) {
+  return {
+    ok,
+    status,
+    json: async () => data,
+  };
 }
 
 function renderLibrary() {
@@ -61,10 +81,52 @@ function renderLibrary() {
   );
 }
 
+function mockFetchWithRoutes(routes, overrides = {}) {
+  const routeList = [...routes];
+  const deleteHandler =
+    overrides.deleteHandler ||
+    ((url) => {
+      const routeId = url.split("/").pop();
+      const index = routeList.findIndex((route) => route.id === routeId);
+      if (index >= 0) routeList.splice(index, 1);
+      return createJsonResponse({});
+    });
+
+  const putHandler =
+    overrides.putHandler ||
+    (async (_url, options) => {
+      const body = JSON.parse(options.body);
+      const routeId = body.id;
+      const updatedRoute = { ...body, id: routeId };
+      const index = routeList.findIndex((route) => route.id === routeId);
+      if (index >= 0) routeList[index] = updatedRoute;
+      return createJsonResponse({ route: updatedRoute });
+    });
+
+  global.fetch = jest.fn(async (url, options = {}) => {
+    const method = options.method || "GET";
+
+    if (method === "GET" && String(url).endsWith("/api/routes")) {
+      return createJsonResponse({ routes: routeList });
+    }
+
+    if (method === "DELETE") {
+      return deleteHandler(url, options, routeList);
+    }
+
+    if (method === "PUT") {
+      return putHandler(url, options, routeList);
+    }
+
+    return createJsonResponse({}, { ok: false, status: 404 });
+  });
+
+  return routeList;
+}
+
 beforeEach(() => {
   window.localStorage.clear();
-  mockLoaderState = { isLoaded: true, loadError: null };
-  mockRoute.mockReset().mockResolvedValue(buildDirectionsResult());
+  mockRoute = jest.fn().mockResolvedValue(buildDirectionsResult());
 
   mockMapInstance.fitBounds.mockReset();
   mockMapInstance.panTo.mockReset();
@@ -83,9 +145,19 @@ beforeEach(() => {
       UnitSystem: {
         IMPERIAL: "IMPERIAL",
       },
+      Size: function Size(width, height) {
+        this.width = width;
+        this.height = height;
+      },
+      LatLngBounds: function LatLngBounds() {
+        this.extend = jest.fn();
+      },
+      Geocoder: function Geocoder() {
+        this.geocode = jest.fn((_request, callback) => callback([{}], "OK"));
+      },
     },
   };
-  global.window.google = global.google;
+  window.google = global.google;
 
   window.matchMedia = jest.fn().mockImplementation(() => ({
     matches: false,
@@ -98,32 +170,25 @@ beforeEach(() => {
     dispatchEvent: jest.fn(),
   }));
 
-  window.alert = jest.fn();
-  window.confirm = jest.fn(() => true);
+  jest.spyOn(console, "error").mockImplementation(() => {});
+  jest.spyOn(console, "warn").mockImplementation(() => {});
 });
 
 afterEach(() => {
   delete global.google;
-  delete global.window.google;
+  delete window.google;
+  delete global.fetch;
   jest.restoreAllMocks();
 });
 
-test("shows loading UI when maps script is not loaded", () => {
-  mockLoaderState = { isLoaded: false, loadError: null };
-  renderLibrary();
-  expect(screen.getByText("Loading map...")).toBeInTheDocument();
-});
-
-test("shows load error UI when maps script fails", () => {
-  mockLoaderState = { isLoaded: true, loadError: new Error("boom") };
-  renderLibrary();
-  expect(screen.getByText("Error loading Google Maps")).toBeInTheDocument();
-});
-
 test("shows empty state when no routes match", async () => {
+  mockFetchWithRoutes([]);
   renderLibrary();
-  expect(screen.getByText(/Saved Routes \(0\)/i)).toBeInTheDocument();
-  expect(screen.getByText(/No routes match your search and filters\./i)).toBeInTheDocument();
+
+  expect(await screen.findByText(/Saved Routes \(0\)/i)).toBeInTheDocument();
+  expect(
+    await screen.findByText(/No routes match your search and filters\./i)
+  ).toBeInTheDocument();
 
   const user = userEvent.setup();
   await user.type(screen.getByPlaceholderText("Search saved routes..."), "anything");
@@ -131,15 +196,16 @@ test("shows empty state when no routes match", async () => {
 });
 
 test("search and filters work together, and clear filters resets", async () => {
-  const routes = [
+  mockFetchWithRoutes([
     {
       id: "r1",
       title: "Walk Fast Short",
       origin: "Main St",
       destination: "Riverfront",
-      distance: ".8 mi",
+      distance: "0.8 mi",
       duration: "19 mins",
-      type: "?",
+      type: "👣",
+      tags: ["USC"],
     },
     {
       id: "r2",
@@ -148,7 +214,8 @@ test("search and filters work together, and clear filters resets", async () => {
       destination: "Park",
       distance: "1.2 mi",
       duration: "25 mins",
-      type: "??",
+      type: "🚲",
+      tags: [],
     },
     {
       id: "r3",
@@ -157,36 +224,39 @@ test("search and filters work together, and clear filters resets", async () => {
       destination: "Museum",
       distance: "2.1 mi",
       duration: "30 mins",
-      type: "?",
+      type: "👣",
+      tags: [],
     },
-  ];
+  ]);
 
-  seedRoutes(routes);
   renderLibrary();
-  const user = userEvent.setup();
+  expect(await screen.findByText(/Saved Routes \(3\)/i)).toBeInTheDocument();
 
+  const user = userEvent.setup();
   await user.type(screen.getByPlaceholderText("Search saved routes..."), "walk");
-  expect(screen.getByText("Walk Fast Short ?")).toBeInTheDocument();
-  expect(screen.getByText("Walk Long ?")).toBeInTheDocument();
-  expect(screen.queryByText("Bike Slow ??")).not.toBeInTheDocument();
+
+  expect(screen.getByText("Walk Fast Short 👣")).toBeInTheDocument();
+  expect(screen.getByText("Walk Long 👣")).toBeInTheDocument();
+  expect(screen.queryByText("Bike Slow 🚲")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Filter" }));
-  await user.selectOptions(screen.getByLabelText("Route Type"), "?");
+  await user.selectOptions(screen.getByLabelText("Route Type"), "👣");
+  await user.selectOptions(screen.getByLabelText("USC Tag"), "usc");
   await user.type(screen.getByLabelText("Max Distance (mi)"), "1");
   await user.type(screen.getByLabelText("Max Time (min)"), "20");
 
-  expect(screen.getByRole("button", { name: "Hide Filters (3)" })).toBeInTheDocument();
-  expect(screen.getByText("Walk Fast Short ?")).toBeInTheDocument();
-  expect(screen.queryByText("Walk Long ?")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Hide Filters (4)" })).toBeInTheDocument();
+  expect(screen.getByText("Walk Fast Short 👣")).toBeInTheDocument();
+  expect(screen.queryByText("Walk Long 👣")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Clear Filters" }));
   expect(screen.getByRole("button", { name: "Hide Filters" })).toBeInTheDocument();
-  expect(screen.getByText("Walk Fast Short ?")).toBeInTheDocument();
-  expect(screen.getByText("Walk Long ?")).toBeInTheDocument();
+  expect(screen.getByText("Walk Fast Short 👣")).toBeInTheDocument();
+  expect(screen.getByText("Walk Long 👣")).toBeInTheDocument();
 });
 
-test("load renders directions, sets stats, shows saved review, and recenter uses route origin", async () => {
-  seedRoutes([
+test("load renders directions, sets stats, and shows saved route details", async () => {
+  mockFetchWithRoutes([
     {
       id: "route-1",
       title: "River Loop",
@@ -194,8 +264,10 @@ test("load renders directions, sets stats, shows saved review, and recenter uses
       destination: "B",
       distance: "0.8 mi",
       duration: "19 mins",
-      type: "??",
+      type: "🚲",
       review: { stars: 4, terrain: 7, comment: "Smooth and shaded." },
+      hazards: [{ type: "construction", lat: 34.0, lng: -81.01 }],
+      photos: [{ url: "https://example.com/photo.jpg", caption: "Bridge view" }],
     },
   ]);
 
@@ -206,6 +278,7 @@ test("load renders directions, sets stats, shows saved review, and recenter uses
   renderLibrary();
   const user = userEvent.setup();
 
+  await screen.findByText("River Loop 🚲");
   await user.click(screen.getByRole("button", { name: "Load" }));
 
   await waitFor(() => {
@@ -218,6 +291,7 @@ test("load renders directions, sets stats, shows saved review, and recenter uses
     expect.objectContaining({
       origin: "A",
       destination: "B",
+      travelMode: "BICYCLING",
       unitSystem: "IMPERIAL",
     })
   );
@@ -227,14 +301,14 @@ test("load renders directions, sets stats, shows saved review, and recenter uses
   expect(screen.getByText("4/5")).toBeInTheDocument();
   expect(screen.getByText(/Terrain:/i)).toBeInTheDocument();
   expect(screen.getByText("Smooth and shaded.")).toBeInTheDocument();
+  expect(screen.getByText(/Hazards \(1\)/i)).toBeInTheDocument();
+  expect(screen.getByText("Trail Photos")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Recenter" }));
-  expect(mockMapInstance.panTo).toHaveBeenCalledWith({ lat: 34.1, lng: -81.2 });
-  expect(mockMapInstance.setZoom).toHaveBeenCalledWith(14);
+  expect(mockMapInstance.fitBounds).toHaveBeenCalled();
 });
 
-test("load failure alerts and clears any stale review", async () => {
-  seedRoutes([
+test("load failure shows snackbar and clears any stale review", async () => {
+  mockFetchWithRoutes([
     {
       id: "route-fail",
       title: "Broken Route",
@@ -242,7 +316,7 @@ test("load failure alerts and clears any stale review", async () => {
       destination: "Y",
       distance: "1 mi",
       duration: "10 mins",
-      type: "??",
+      type: "🚲",
       review: { stars: 5, terrain: 9, comment: "Old review" },
     },
   ]);
@@ -251,26 +325,25 @@ test("load failure alerts and clears any stale review", async () => {
 
   renderLibrary();
   const user = userEvent.setup();
+
+  await screen.findByText("Broken Route 🚲");
   await user.click(screen.getByRole("button", { name: "Load" }));
 
-  await waitFor(() => {
-    expect(window.alert).toHaveBeenCalledWith("Could not load route.");
-  });
-
+  expect(await screen.findByText("Could not load route.")).toBeInTheDocument();
   expect(screen.queryByTestId("directions-renderer")).not.toBeInTheDocument();
   expect(screen.getByText(/No review saved for this route\./i)).toBeInTheDocument();
 });
 
-test("delete route respects confirm and removes selected route state", async () => {
-  seedRoutes([
+test("delete route removes selected route state after snackbar confirmation", async () => {
+  mockFetchWithRoutes([
     {
       id: "delete-me",
       title: "Delete target route",
       origin: "301 Main St",
       destination: "1523 Greene St",
-      distance: ".8 mi",
+      distance: "0.8 mi",
       duration: "19 mins",
-      type: "?",
+      type: "👣",
       review: { stars: 3, terrain: 5, comment: "ok" },
     },
   ]);
@@ -278,25 +351,28 @@ test("delete route respects confirm and removes selected route state", async () 
   renderLibrary();
   const user = userEvent.setup();
 
+  await screen.findByText("Delete target route 👣");
   await user.click(screen.getByRole("button", { name: "Load" }));
   await screen.findByText("Saved Review");
 
-  window.confirm = jest.fn(() => false);
   await user.click(screen.getByRole("button", { name: "Delete" }));
-  expect(screen.getByText("Delete target route ?")).toBeInTheDocument();
+  expect(await screen.findByText("Delete this saved route?")).toBeInTheDocument();
 
-  window.confirm = jest.fn(() => true);
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByText("Delete target route 👣")).toBeInTheDocument();
+
   await user.click(screen.getByRole("button", { name: "Delete" }));
+  await user.click(screen.getAllByRole("button", { name: "Delete" })[1]);
 
   await waitFor(() => {
-    expect(screen.queryByText("Delete target route ?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete target route 👣")).not.toBeInTheDocument();
   });
   expect(screen.queryByText("Saved Review")).not.toBeInTheDocument();
   expect(screen.queryByText(/Distance:/i)).not.toBeInTheDocument();
 });
 
-test("edit can be canceled and save validates required origin/destination", async () => {
-  seedRoutes([
+test("edit can be canceled and save validates required origin and destination", async () => {
+  mockFetchWithRoutes([
     {
       id: "edit-1",
       title: "Editable",
@@ -304,13 +380,14 @@ test("edit can be canceled and save validates required origin/destination", asyn
       destination: "End",
       distance: "1 mi",
       duration: "10 mins",
-      type: "?",
+      type: "👣",
     },
   ]);
 
   renderLibrary();
   const user = userEvent.setup();
 
+  await screen.findByText("Editable 👣");
   await user.click(screen.getByRole("button", { name: "Edit" }));
   expect(screen.getByDisplayValue("Editable")).toBeInTheDocument();
 
@@ -322,12 +399,12 @@ test("edit can be canceled and save validates required origin/destination", asyn
   await user.clear(originInput);
   await user.click(screen.getByRole("button", { name: "Save" }));
 
-  expect(window.alert).toHaveBeenCalledWith("Origin and destination are required.");
+  expect(await screen.findByText("Origin and destination are required.")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("Origin")).toBeInTheDocument();
 });
 
-test("save edit updates route card and persists to localStorage", async () => {
-  seedRoutes([
+test("save edit updates route card through the API response", async () => {
+  mockFetchWithRoutes([
     {
       id: "edit-2",
       title: "Old Title",
@@ -335,13 +412,16 @@ test("save edit updates route card and persists to localStorage", async () => {
       destination: "Old Dest",
       distance: "1 mi",
       duration: "10 mins",
-      type: "?",
+      type: "👣",
+      tags: [],
+      public: false,
     },
   ]);
 
   renderLibrary();
   const user = userEvent.setup();
 
+  await screen.findByText("Old Title 👣");
   await user.click(screen.getByRole("button", { name: "Edit" }));
 
   const titleInput = screen.getByPlaceholderText("Route title");
@@ -358,22 +438,19 @@ test("save edit updates route card and persists to localStorage", async () => {
   await user.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => {
-    expect(screen.getByText("Updated Route ?")).toBeInTheDocument();
+    expect(screen.getByText("Updated Route 👣")).toBeInTheDocument();
   });
-
-  const persisted = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
-  expect(persisted[0]).toEqual(
+  expect(global.fetch).toHaveBeenCalledWith(
+    expect.stringContaining("/api/routes/edit-2"),
     expect.objectContaining({
-      id: "edit-2",
-      title: "Updated Route",
-      origin: "New Origin",
-      destination: "New Destination",
+      method: "PUT",
+      body: expect.any(String),
     })
   );
 });
 
 test("saving an edited selected route reloads it", async () => {
-  seedRoutes([
+  mockFetchWithRoutes([
     {
       id: "edit-selected",
       title: "Reloadable",
@@ -381,26 +458,30 @@ test("saving an edited selected route reloads it", async () => {
       destination: "B",
       distance: "1 mi",
       duration: "10 mins",
-      type: "??",
+      type: "🚲",
+      tags: [],
+      public: false,
     },
   ]);
 
   renderLibrary();
   const user = userEvent.setup();
 
+  await screen.findByText("Reloadable 🚲");
   await user.click(screen.getByRole("button", { name: "Load" }));
   await screen.findByText(/Distance:/i);
 
   await user.click(screen.getByRole("button", { name: "Edit" }));
-  const destinationInput = screen.getByPlaceholderText("Destination");
-  await user.clear(destinationInput);
-  await user.type(destinationInput, "C");
+  const titleInput = screen.getByPlaceholderText("Route title");
+  await user.clear(titleInput);
+  await user.type(titleInput, "Reloaded Route");
   await user.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => {
     expect(mockRoute).toHaveBeenCalledTimes(2);
   });
+  expect(screen.getByText("Reloaded Route 🚲")).toBeInTheDocument();
   expect(mockRoute).toHaveBeenLastCalledWith(
-    expect.objectContaining({ destination: "C" })
+    expect.objectContaining({ origin: "A", destination: "B" })
   );
 });
