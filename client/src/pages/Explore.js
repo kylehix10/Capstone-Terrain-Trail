@@ -74,6 +74,7 @@ async function fetchPublicRoutes() {
   return Array.isArray(data.routes) ? data.routes : [];
 }
 
+
 async function voteOnRoute(routeId, vote) {
   const res = await fetch(`${API_BASE}/api/routes/${routeId}/vote`, {
     method: "POST",
@@ -261,6 +262,10 @@ export default function Explore() {
   const location = useLocation();
   const highlightRouteId = location.state?.highlightRouteId ?? null;
 
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRoutes, setUserRoutes] = useState([]);
+
+
   const onMapLoad = useCallback((map) => {
     mapRefInternal.current = map;
   }, []);
@@ -300,6 +305,44 @@ export default function Explore() {
       if (existing) existing.remove();
     };
   }, []);
+
+  useEffect(() => {
+  async function fetchUser() {
+    try {
+      const res = await fetch(`${API_BASE}/api/account`, {
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setCurrentUser(data.user);
+    } catch (e) {
+      console.error("Failed to fetch user", e);
+    }
+  }
+
+  fetchUser();
+}, []);
+
+useEffect(() => {
+  async function fetchUserRoutes() {
+    try {
+      const res = await fetch(`${API_BASE}/api/routes`, {
+        headers: authHeaders(),
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setUserRoutes(data.routes);
+    } catch (e) {
+      console.error("Failed to fetch user routes", e);
+    }
+  }
+
+  fetchUserRoutes();
+}, [location]);
 
   // When navigating here from CompletedTrail with a highlightRouteId,
   // scroll to that card, pulse it, and load it onto the map.
@@ -470,6 +513,7 @@ export default function Explore() {
         bounds: route.bounds || undefined,
         hazards: Array.isArray(route.hazards) ? route.hazards : [],
         photos: Array.isArray(route.photos) ? route.photos : [],
+        sourceRouteId: route.id,
       };
 
       try {
@@ -673,7 +717,19 @@ export default function Explore() {
               const voteScore = r.votes?.score || 0;
               const voteBusy = !!voteLoadingIds[r.id];
               const saveBusy = !!saveLoadingIds[r.id];
-              const alreadySaved = !!savedCopySourceIds[r.id];
+              const alreadySaved =
+  savedCopySourceIds[r.id] ||
+  userRoutes.some(saved =>
+    saved.sourceRouteId === r.id || saved.id === r.id
+  );
+
+                const isOwner =
+                currentUser &&
+                (
+                  r.owner?._id === currentUser._id ||
+                  r.authorUsername === currentUser.username
+                );
+
               const authorDisplay = r.authorUsername
                 ? `@${r.authorUsername}`
                 : r.authorName || "Unknown user";
@@ -827,14 +883,23 @@ export default function Explore() {
                           Share ↗
                         </button>
 
-                        <button
-                          onClick={() => handleSaveCopy(r)}
-                          disabled={saveBusy}
-                          className={alreadySaved ? "saved-copy-btn" : ""}
-                          title="Save a personal copy to your library"
-                        >
-                          {saveBusy ? "Saving..." : alreadySaved ? "Saved" : "Save"}
-                        </button>
+                        {isOwner ? (
+                            <button
+                              onClick={() => navigate("/app/library")}
+                              title="View this route in your library"
+                            >
+                              View in Library
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSaveCopy(r)}
+                              disabled={saveBusy}
+                              className={alreadySaved ? "saved-copy-btn" : ""}
+                              title="Save a personal copy to your library"
+                            >
+                              {saveBusy ? "Saving..." : alreadySaved ? "Saved" : "Save"}
+                            </button>
+                          )}
                       </div>
                     </div>
 
