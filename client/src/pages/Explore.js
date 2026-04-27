@@ -342,7 +342,7 @@ useEffect(() => {
   }
 
   fetchUserRoutes();
-}, [location]);
+}, [location.pathname]);
 
   // When navigating here from CompletedTrail with a highlightRouteId,
   // scroll to that card, pulse it, and load it onto the map.
@@ -528,11 +528,15 @@ useEffect(() => {
           throw new Error(data.message || `Server error: ${res.status}`);
         }
 
-        setSavedCopySourceIds((prev) => ({ ...prev, [route.id]: true }));
+        const data = await res.json();
+        const newRouteId = data.route?.id;
+
+        setSavedCopySourceIds((prev) => ({ ...prev, [route.id]: newRouteId }));
+
         showSnackbar("Route copied to your library.", "success", [
           {
             label: "Open Library",
-            onClick: () => navigate("/app/library"),
+            onClick: () => navigate("/app/library", { state: { highlightRouteId: newRouteId } }),
             closeOnClick: true,
           },
         ]);
@@ -717,24 +721,31 @@ useEffect(() => {
               const voteScore = r.votes?.score || 0;
               const voteBusy = !!voteLoadingIds[r.id];
               const saveBusy = !!saveLoadingIds[r.id];
-              const alreadySaved =
-  savedCopySourceIds[r.id] ||
-  userRoutes.some(saved =>
-    saved.sourceRouteId === r.id || saved.id === r.id
-  );
+              
+              const savedNewId = savedCopySourceIds[r.id];
 
-                const isOwner =
+              const alreadySaved =
+                savedNewId ||
+                userRoutes.some(saved => saved.sourceRouteId === r.id);
+
+              const isOwner =
                 currentUser &&
                 (
                   r.owner?._id === currentUser._id ||
                   r.authorUsername === currentUser.username
                 );
 
+              const libraryRouteId =
+                (typeof savedNewId === "string" ? savedNewId : null) ||
+                userRoutes.find(saved => saved.sourceRouteId === r.id)?.id ||
+                (isOwner ? r.id : null);
+
               const authorDisplay = r.authorUsername
                 ? `@${r.authorUsername}`
                 : r.authorName || "Unknown user";
 
               const routePhotos = Array.isArray(r.photos) ? r.photos : [];
+
 
               return (
                 <div
@@ -885,19 +896,21 @@ useEffect(() => {
 
                         {isOwner ? (
                             <button
-                              onClick={() => navigate("/app/library")}
+                              onClick={() => navigate("/app/library", { state: { highlightRouteId: r.id } })}
                               title="View this route in your library"
                             >
                               View in Library
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleSaveCopy(r)}
+                              onClick={() => alreadySaved 
+                                ? navigate("/app/library", { state: { highlightRouteId: libraryRouteId } })
+                                : handleSaveCopy(r)}
                               disabled={saveBusy}
                               className={alreadySaved ? "saved-copy-btn" : ""}
-                              title="Save a personal copy to your library"
+                              title={alreadySaved ? "View in your library" : "Save a personal copy to your library"}
                             >
-                              {saveBusy ? "Saving..." : alreadySaved ? "Saved" : "Save"}
+                              {saveBusy ? "Saving..." : alreadySaved ? "View in Library" : "Save"}
                             </button>
                           )}
                       </div>

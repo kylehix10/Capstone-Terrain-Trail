@@ -84,6 +84,7 @@ const routePhotoSchema = new mongoose.Schema(
 const routeSchema = new mongoose.Schema(
   {
     clientId: { type: String, default: null },
+    sourceRouteId:  {type: String, default: null },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -243,6 +244,7 @@ function parsePhotos(raw) {
 function buildRouteDoc(r, ownerId) {
   return {
     clientId: r.id || r.clientId || null,
+    sourceRouteId: r.sourceRouteId || null,
     owner: ownerId,
     title: r.title || "",
     origin: r.origin || "",
@@ -770,6 +772,18 @@ app.post("/api/routes", requireAuth, async (req, res) => {
 
     // Single route
     const doc = buildRouteDoc(body, req.userId);
+
+    // Prevent duplicate copies of the same source route
+    if (doc.sourceRouteId) {
+      const existing = await Route.findOne({
+        owner: req.userId,
+        sourceRouteId: doc.sourceRouteId,
+      });
+      if (existing) {
+        return res.status(409).json({ message: "You already have a copy of this route." });
+      }
+    }
+
     const created = await Route.create(doc);
 
     res.status(201).json({
