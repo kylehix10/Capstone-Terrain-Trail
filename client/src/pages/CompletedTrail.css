@@ -399,6 +399,22 @@ body,
   color: #fff;
 }
 
+/* vis-btn hover — inactive */
+.vis-btn:not(.vis-active):hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text);
+}
+
+/* vis-btn hover — active (keep text white, slightly darken background) */
+.vis-btn.vis-active:hover {
+  background: var(--brand, #5a0008);
+  color: #fff;
+}
+
+.vis-btn:hover {
+  transform: none;
+}
+
 .vis-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
