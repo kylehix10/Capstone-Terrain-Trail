@@ -253,3 +253,10 @@ button {
   background: none !important;
 }
 
+@media (max-width: 768px) {
+  .route-actions button {
+    font-size: 12px;        /* smaller text */
+    padding: 6px 8px;       /* tighter padding */
+    min-width: auto;        /* 🔥 THIS is key */
+  }
+}
