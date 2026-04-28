@@ -1,259 +1,166 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import "./SplashScreen.css";
-import horseshoeImage from "./horseshoe_now.jpg";
-import explorePageImage from "./explorepage.png";
-import createPageImage from "./create.png";
-import libraryPageImage from "./library.png";
-import votePageImage from "./vote.png";
-
-const teamMembers = [
-  {
-    name: "Madeleine McBride",
-    linkedin: "https://www.linkedin.com/in/madeleine-mcbride/",
-    personalSite: "https://mcmad1325.github.io/",
-  },
-  {
-    name: "Gavin Orme",
-    linkedin: "https://www.linkedin.com/in/gavin-orme-2863b8286/",
-    personalSite: "",
-  },
-  {
-    name: "Kyle Hix",
-    linkedin: "https://www.linkedin.com/in/kyle-hix19/",
-    personalSite: "",
-  },
-  {
-    name: "Meet Patel",
-    linkedin: "https://www.linkedin.com/in/meetkumar-patel-085047311/",
-    personalSite: "",
-  },
-  {
-    name: "Donovan Williams",
-    linkedin: "",
-    personalSite: "",
-  },
-];
 
 function SplashScreen() {
   return (
-    <div className="splash-page">
-      <header className="app-header splash-header">
-        <img
-          src="/img/colaCan.png"
-          alt="Cola Trails logo"
-          className="splash-logo"
-        />
+    <main className="splash-page">
+      <section className="splash-hero">
+        <div className="splash-hero-content">
+          <p className="splash-eyebrow">Terrain Trail</p>
 
-        <div className="splash-header-inner">
-          <h1>Cola Trails</h1>
-          <p>Explore, record, review, and share trails around USC</p>
+          <h1>Find better routes around campus.</h1>
+
+          <p className="splash-hero-text">
+            Terrain Trail helps students discover, create, save, and review
+            accessible campus routes based on terrain, travel method, and
+            student feedback.
+          </p>
+
+          <div className="splash-hero-actions">
+            <Link to="/signup" className="splash-primary-button">
+              Get Started
+            </Link>
+
+            <Link to="/login" className="splash-secondary-button">
+              Log In
+            </Link>
+          </div>
         </div>
-      </header>
+      </section>
 
-      <main className="splash-main">
-        <section className="splash-card">
-          <div className="splash-left">
-            <p className="splash-tag">Built for getting around USC</p>
+      <section className="splash-info-card">
+        <div className="splash-section-heading">
+          <p className="splash-section-label">Project Goal</p>
+          <h2>Making campus navigation easier</h2>
+          <p>
+            Students often run into unexpected obstacles while navigating
+            campus, including steep hills, rough terrain, construction, stairs,
+            and routes that are not ideal for their transportation needs.
+            Terrain Trail gives students a way to share useful route
+            information and make smarter navigation choices.
+          </p>
+        </div>
+      </section>
 
-            <h2 className="splash-title">Find the best way around campus.</h2>
+      <section className="splash-info-card">
+        <div className="splash-section-heading">
+          <p className="splash-section-label">Final Demo</p>
+          <h3>Video walkthrough</h3>
+          <p>
+            Watch our final demo video to see how Terrain Trail helps students
+            find, create, save, and review accessible routes around campus.
+          </p>
+        </div>
 
-            <p className="splash-description">
-              Cola Trails helps students discover, create, save, and share
-              routes around USC. Users can explore public trails, compare route
-              details like terrain and accessibility, save useful paths, and
-              leave reviews to help others find the route that fits them best.
-            </p>
+        <div className="splash-video-wrapper">
+          <iframe
+            className="splash-video"
+            src="https://www.youtube.com/embed/ySdk2vFVs8E"
+            title="Terrain Trail Final Demo Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          ></iframe>
+        </div>
+      </section>
 
-            <div className="splash-feature-list">
-              <div className="splash-feature-pill">Explore public trails</div>
-              <div className="splash-feature-pill">Create your own routes</div>
-              <div className="splash-feature-pill">Save and review favorites</div>
+      <section className="splash-info-card splash-how-card">
+        <div className="splash-section-heading">
+          <p className="splash-section-label">How and why to use the app</p>
+          <h3>Designed to make navigating USC easier</h3>
+          <p>
+            Terrain Trail gives students a place to explore existing routes,
+            create new routes, save helpful routes, and vote on routes that
+            worked well for them.
+          </p>
+        </div>
+
+        <div className="splash-feature-grid">
+          <article className="splash-feature-card">
+            <div className="splash-feature-text">
+              <p className="splash-feature-number">01</p>
+              <h4>Explore routes</h4>
+              <p>
+                View public campus routes and filter by travel method to find
+                paths that fit your needs.
+              </p>
             </div>
-
-            <div className="splash-button-group">
-              <Link to="/login" className="splash-button splash-button-primary">
-                Log In
-              </Link>
-
-              <Link
-                to="/signup"
-                className="splash-button splash-button-secondary"
-              >
-                Create Account
-              </Link>
-            </div>
-          </div>
-
-          <div className="splash-right">
             <img
-              src={horseshoeImage}
-              alt="The Horseshoe at USC"
-              className="splash-image"
+              src="/pages/explorepage.png"
+              alt="Explore page showing available campus routes"
+              className="splash-feature-image"
             />
-          </div>
-        </section>
+          </article>
 
-        <section className="splash-info-card">
-          <div className="splash-section-heading">
-            <p className="splash-section-label">Final Demo</p>
-            <h3>Video walkthrough</h3>
-            <p>
-              This is a placeholder for the final demo video. Replace the file
-              later with your completed demo video and the same section will
-              still work.
-            </p>
-          </div>
-
-          <div className="splash-video-wrapper">
-            <video
-              className="splash-video"
-              controls
-              preload="metadata"
-              poster="/img/colaCan.png"
-            >
-              <source
-                src="/videos/final-demo-placeholder.mp4"
-                type="video/mp4"
-              />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        </section>
-
-        <section className="splash-info-card splash-how-card">
-          <div className="splash-section-heading">
-            <p className="splash-section-label">How and why to use the app</p>
-            <h3>Designed to make navigating USC easier</h3>
-            <p>
-              Cola Trails is for students who want a better way to get around
-              campus. Instead of guessing which path is easiest, fastest, or
-              most accessible, users can browse shared routes, compare trail
-              details, and learn from other students&apos; experiences before
-              choosing where to go.
-            </p>
-          </div>
-
-          <div className="splash-steps-grid">
-            <div className="splash-step-card">
-              <img
-                src={explorePageImage}
-                alt="Explore page screenshot"
-                className="splash-step-image"
-              />
-              <h4>1. Explore routes</h4>
+          <article className="splash-feature-card">
+            <div className="splash-feature-text">
+              <p className="splash-feature-number">02</p>
+              <h4>Create a route</h4>
               <p>
-                Browse public trails around USC and compare them by route,
-                terrain, accessibility, and travel mode.
+                Add your own route by selecting points on the map and saving
+                useful details for other students.
               </p>
             </div>
+            <img
+              src="/pages/create.png"
+              alt="Create route page showing route creation tools"
+              className="splash-feature-image"
+            />
+          </article>
 
-            <div className="splash-step-card">
-              <img
-                src={createPageImage}
-                alt="Create trail screenshot"
-                className="splash-step-image"
-              />
-              <h4>2. Create your own trail</h4>
+          <article className="splash-feature-card">
+            <div className="splash-feature-text">
+              <p className="splash-feature-number">03</p>
+              <h4>Save routes</h4>
               <p>
-                Build a route on the map, compare route options, and customize
-                your path based on your needs.
+                Keep track of routes you use often so you can return to them
+                later from your library.
               </p>
             </div>
+            <img
+              src="/pages/library.png"
+              alt="Library page showing saved routes"
+              className="splash-feature-image"
+            />
+          </article>
 
-            <div className="splash-step-card">
-              <img
-                src={libraryPageImage}
-                alt="Library page screenshot"
-                className="splash-step-image"
-              />
-              <h4>3. Save to your library</h4>
+          <article className="splash-feature-card">
+            <div className="splash-feature-text">
+              <p className="splash-feature-number">04</p>
+              <h4>Vote and review</h4>
               <p>
-                Keep useful routes organized in one place so you can easily come
-                back to your saved trails later.
+                Upvote, downvote, and review public routes so students can see
+                which paths are most useful.
               </p>
             </div>
+            <img
+              src="/pages/vote.png"
+              alt="Voting feature on public routes"
+              className="splash-feature-image"
+            />
+          </article>
+        </div>
+      </section>
 
-            <div className="splash-step-card">
-              <img
-                src={votePageImage}
-                alt="Voting and review screenshot"
-                className="splash-step-image"
-              />
-              <h4>4. Vote and help other students</h4>
-              <p>
-                Share feedback, leave reviews, and support helpful public trails
-                so others can make better route decisions.
-              </p>
-            </div>
-          </div>
-        </section>
+      <section className="splash-info-card">
+        <div className="splash-section-heading">
+          <p className="splash-section-label">Repository</p>
+          <h3>Project source code</h3>
+          <p>
+            The link below opens the GitHub repository for the Terrain Trail
+            project.
+          </p>
+        </div>
 
-        <section className="splash-info-card">
-          <div className="splash-section-heading">
-            <p className="splash-section-label">About the team</p>
-            <h3>Meet the developers behind Cola Trails</h3>
-            <p>
-              Cola Trails was built as a capstone project focused on improving
-              campus navigation through shared route information, student
-              reviews, and accessibility-aware trail exploration.
-            </p>
-          </div>
-
-          <div className="splash-team-grid">
-            {teamMembers.map((member) => (
-              <div className="splash-team-card" key={member.name}>
-                <h4>{member.name}</h4>
-
-                {(member.linkedin || member.personalSite) && (
-                  <div className="splash-team-links">
-                    {member.linkedin && (
-                      <a
-                        href={member.linkedin}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="splash-team-link"
-                      >
-                        LinkedIn
-                      </a>
-                    )}
-
-                    {member.personalSite && (
-                      <a
-                        href={member.personalSite}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="splash-team-link"
-                      >
-                        Personal Site
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="splash-repo-section">
-            <p className="splash-repo-description">
-              This link goes to the project repository for Cola Trails, where
-              you can view the source code and development work for the app.
-            </p>
-
-            <div className="splash-repo-row">
-              <a
-                href="https://github.com/SCCapstone/Capstone-Terrain-Trail"
-                target="_blank"
-                rel="noreferrer"
-                className="splash-button splash-button-tertiary"
-              >
-                View GitHub Repo
-              </a>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
+        <a
+          className="splash-repo-link"
+          href="https://github.com/SCCapstone/Capstone-Terrain-Trail"
+          target="_blank"
+          rel="noreferrer"
+        >
+          View the Terrain Trail GitHub Repository
+        </a>
+      </section>
+    </main>
   );
 }
 
